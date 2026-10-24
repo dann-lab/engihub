@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { getAuthHeaders } from '../../services/apiClient';
+import { callNetlifyAI, FALLBACK_AI_ERROR } from '../../services/apiClient';
 import { TutorSession, TutorStep } from '../../types';
 import { MarkdownView } from '../MarkdownView';
 import { Skeleton } from '../common/Skeleton';
@@ -138,63 +138,24 @@ export const AITutor: React.FC = () => {
     setErrorMessage('');
 
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch('/api/tutor/stream', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          course: session.course,
-          topic: session.topic,
-          stepNumber: stepNum,
-          previousSteps: session.steps.map((s) => ({
-            stepNumber: s.stepNumber,
-            title: s.title,
-            summary: s.content.slice(0, 150)
-          })),
-          isLostAnalogy: isLost,
-          studentQuestion: studentQ,
-          lowDataMode: userProfile?.lowDataMode || false
-        })
+      const data = await callNetlifyAI<{ text?: string; reply?: string }>({
+        module: 'tutor',
+        course: session.course,
+        topic: session.topic,
+        stepNumber: stepNum,
+        previousSteps: session.steps.map((s) => ({
+          stepNumber: s.stepNumber,
+          title: s.title,
+          summary: s.content.slice(0, 150)
+        })),
+        isLostAnalogy: isLost,
+        studentQuestion: studentQ,
+        lowDataMode: userProfile?.lowDataMode || false
       });
 
-      if (!response.ok) {
-        let errMsg = 'Failed to generate step. Please check connection.';
-        try {
-          const err = await response.json();
-          if (err.error) errMsg = err.error;
-        } catch {}
-        throw new Error(errMsg);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Stream reader not available');
-
-      const decoder = new TextDecoder();
-      let fullContent = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunkStr = decoder.decode(value, { stream: true });
-        const lines = chunkStr.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6).trim();
-            if (!dataStr) continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.chunk) {
-                fullContent += parsed.chunk;
-                setStreamBuffer(fullContent);
-              }
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-            } catch {}
-          }
-        }
+      const fullContent = data.text || data.reply || '';
+      if (!fullContent) {
+        throw new Error(FALLBACK_AI_ERROR);
       }
 
       const newStep: TutorStep = {
@@ -220,7 +181,8 @@ export const AITutor: React.FC = () => {
       const refreshed = await firestoreService.getTutorSessions(currentUser.uid);
       setPastSessions(refreshed);
     } catch (err: any) {
-      setErrorMessage(err.message || 'That didn\'t go through. Check your connection and try again.');
+      console.error('Tutor step error:', err);
+      setErrorMessage(FALLBACK_AI_ERROR);
     } finally {
       setIsStreaming(false);
     }

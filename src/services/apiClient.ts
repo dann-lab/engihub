@@ -16,6 +16,41 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+export const FALLBACK_AI_ERROR = "The tutor didn't respond. Check your connection and try again.";
+
+/**
+ * Universal client function calling Netlify AI function at /.netlify/functions/ai
+ * Matches Netlify production deployment and local dev proxy.
+ */
+export async function callNetlifyAI<T = any>(payload: Record<string, any>): Promise<T> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch('/.netlify/functions/ai', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let serverErr = '';
+      try {
+        const errJson = await response.json();
+        serverErr = errJson.error || errJson.message || '';
+      } catch {
+        serverErr = await response.text().catch(() => '');
+      }
+      console.error('Netlify AI request failed:', response.status, serverErr || response.statusText);
+      throw new Error(FALLBACK_AI_ERROR);
+    }
+
+    const data = await response.json();
+    return data as T;
+  } catch (err: any) {
+    console.error('AI invocation error:', err);
+    throw new Error(FALLBACK_AI_ERROR);
+  }
+}
+
 export async function apiRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers = await getAuthHeaders();
   const response = await fetch(url, {
@@ -27,7 +62,7 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
   });
 
   if (!response.ok) {
-    let errMessage = 'That didn\'t go through. Check your connection and try again.';
+    let errMessage = FALLBACK_AI_ERROR;
     try {
       const errJson = await response.json();
       if (errJson.error) {
@@ -39,9 +74,6 @@ export async function apiRequest<T>(url: string, options: RequestInit = {}): Pro
 
     if (response.status === 401) {
       throw new Error('Your session has expired. Please sign in again.');
-    }
-    if (response.status === 429) {
-      throw new Error(errMessage);
     }
     throw new Error(errMessage);
   }

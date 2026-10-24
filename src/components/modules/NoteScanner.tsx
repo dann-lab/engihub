@@ -9,7 +9,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { getAuthHeaders } from '../../services/apiClient';
+import { callNetlifyAI, FALLBACK_AI_ERROR } from '../../services/apiClient';
 import { NoteAnalysisMode, ScannedNoteRecord } from '../../types';
 import { MarkdownView } from '../MarkdownView';
 import { Skeleton } from '../common/Skeleton';
@@ -87,55 +87,20 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
     setError('');
 
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch('/api/scanner/analyze', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          imageBase64: selectedImage,
-          mimeType: imageMime,
-          action,
-          lowDataMode: userProfile?.lowDataMode || false
-        })
+      const data = await callNetlifyAI<{ text?: string; reply?: string }>({
+        module: 'scanner',
+        image: selectedImage,
+        mimeType: imageMime,
+        action,
+        lowDataMode: userProfile?.lowDataMode || false
       });
 
-      if (!response.ok) {
-        let errMessage = 'Could not scan image.';
-        try {
-          const err = await response.json();
-          if (err.error) errMessage = err.error;
-        } catch {}
-        throw new Error(errMessage);
+      const fullContent = data.text || data.reply || '';
+      if (!fullContent) {
+        throw new Error(FALLBACK_AI_ERROR);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Stream reader not available');
-
-      const decoder = new TextDecoder();
-      let fullContent = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunkStr = decoder.decode(value, { stream: true });
-        const lines = chunkStr.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6).trim();
-            if (!dataStr) continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.chunk) {
-                fullContent += parsed.chunk;
-                setAnalysisText(fullContent);
-              }
-              if (parsed.error) throw new Error(parsed.error);
-            } catch {}
-          }
-        }
-      }
+      setAnalysisText(fullContent);
 
       const newRecord: ScannedNoteRecord = {
         id: `note_${Date.now()}`,
@@ -150,7 +115,8 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       const refreshed = await firestoreService.getScannedNotes(currentUser.uid);
       setSavedNotes(refreshed);
     } catch (err: any) {
-      setError(err.message || 'That didn\'t go through. Check your connection and try again.');
+      console.error('Note scanner error:', err);
+      setError(FALLBACK_AI_ERROR);
     } finally {
       setIsAnalyzing(false);
     }

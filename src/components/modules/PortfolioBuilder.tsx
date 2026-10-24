@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { apiRequest } from '../../services/apiClient';
+import { callNetlifyAI, FALLBACK_AI_ERROR } from '../../services/apiClient';
 import { CommunityProblemSolution, PortfolioCaseStudy } from '../../types';
 import { MarkdownView } from '../MarkdownView';
 import { Skeleton } from '../common/Skeleton';
@@ -63,16 +63,14 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
     setError('');
 
     try {
-      const data = await apiRequest<any>('/api/portfolio/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          problemSolution: solution,
-          studentName: userProfile.displayName,
-          university: userProfile.university,
-          department: userProfile.department,
-          level: userProfile.level,
-          lowDataMode: userProfile.lowDataMode
-        })
+      const data = await callNetlifyAI<any>({
+        module: 'portfolio',
+        problemSolution: solution,
+        studentName: userProfile.displayName,
+        university: userProfile.university,
+        department: userProfile.department,
+        level: userProfile.level,
+        lowDataMode: userProfile.lowDataMode
       });
 
       const newStudy: PortfolioCaseStudy = {
@@ -97,7 +95,8 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
         await updateProfileData({ skillsEarned: nextSkills });
       }
     } catch (err: any) {
-      setError(err.message || 'That didn\'t go through. Check your connection and try again.');
+      console.error('Portfolio generation error:', err);
+      setError(FALLBACK_AI_ERROR);
     } finally {
       setIsGenerating(false);
     }

@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Allow Netlify Functions to be called without rewriting to index.html
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Client-side SPA routing: redirect all page requests to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

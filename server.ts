@@ -16,6 +16,8 @@ import { getAuth } from 'firebase-admin/auth';
 import { GoogleGenAI, Type } from '@google/genai';
 import { SYSTEM_PROMPTS } from './src/config/systemPrompts.ts';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
+// @ts-ignore
+import { handler as netlifyAIHandler } from './netlify/functions/ai.mjs';
 
 dotenv.config();
 
@@ -200,6 +202,26 @@ function wrapUntrustedData(input: string, label: string): string {
 // -------------------------------------------------------------
 // 5. PROTECTED AI ROUTES
 // -------------------------------------------------------------
+
+// Local development adapter for Netlify serverless function (/.netlify/functions/ai)
+app.all('/.netlify/functions/ai', async (req: Request, res: Response) => {
+  try {
+    const event = {
+      httpMethod: req.method,
+      headers: req.headers as Record<string, string>,
+      body: req.method === 'POST' ? JSON.stringify(req.body) : '',
+    };
+    const result = await netlifyAIHandler(event, {});
+    const headers = result.headers || {};
+    Object.entries(headers).forEach(([k, v]) => {
+      res.setHeader(k, v as string);
+    });
+    res.status(result.statusCode).send(result.body);
+  } catch (err: any) {
+    console.error('Local Netlify function invocation error:', err);
+    res.status(500).json({ error: "The tutor didn't respond. Check your connection and try again." });
+  }
+});
 
 // Route 1: Tutor Stream
 app.post('/api/tutor/stream', verifyAuthToken, checkRateLimit, async (req: AuthenticatedRequest, res: Response) => {

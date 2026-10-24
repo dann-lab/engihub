@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { apiRequest } from '../../services/apiClient';
+import { callNetlifyAI, FALLBACK_AI_ERROR } from '../../services/apiClient';
 import { CBTQuestion, CBTQuiz, DifficultyLevel, WeakTopic } from '../../types';
 import { MarkdownView } from '../MarkdownView';
 import { Skeleton } from '../common/Skeleton';
@@ -96,15 +96,13 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({ initialTopic, notesContext
     setIsAnswerSubmitted(false);
 
     try {
-      const data = await apiRequest<{ questions: CBTQuestion[] }>('/api/cbt/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          topic,
-          difficulty,
-          questionCount,
-          notesContent: notesContext || '',
-          lowDataMode: userProfile?.lowDataMode || false
-        })
+      const data = await callNetlifyAI<{ questions: CBTQuestion[] }>({
+        module: 'cbt',
+        topic,
+        difficulty,
+        questionCount,
+        notesContent: notesContext || '',
+        lowDataMode: userProfile?.lowDataMode || false
       });
 
       if (!data.questions || data.questions.length === 0) {
@@ -128,7 +126,8 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({ initialTopic, notesContext
       setActiveQuiz(newQuiz);
       setTimerActive(true);
     } catch (err: any) {
-      setError(err.message || 'That didn\'t go through. Check your connection and try again.');
+      console.error('CBT quiz generation error:', err);
+      setError(FALLBACK_AI_ERROR);
     } finally {
       setIsLoading(false);
     }

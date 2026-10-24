@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { apiRequest } from '../../services/apiClient';
+import { callNetlifyAI, FALLBACK_AI_ERROR } from '../../services/apiClient';
 import {
   CommunityProblemSolution,
   EngineeringField,
@@ -109,16 +109,14 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
     setPublishStatus('idle');
 
     try {
-      const data = await apiRequest<any>('/api/problem-lab/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          problemTitle,
-          localContext,
-          stateOrRegion,
-          constraints,
-          field: selectedField,
-          lowDataMode: userProfile?.lowDataMode || false
-        })
+      const data = await callNetlifyAI<any>({
+        module: 'problemlab',
+        problemTitle,
+        localContext,
+        stateOrRegion,
+        constraints,
+        field: selectedField,
+        lowDataMode: userProfile?.lowDataMode || false
       });
 
       const full: CommunityProblemSolution = {
@@ -141,7 +139,8 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
       await firestoreService.saveCommunitySolution(full);
       await loadLibrary();
     } catch (err: any) {
-      setError(err.message || 'That didn\'t go through. Check your connection and try again.');
+      console.error('Problem lab generation error:', err);
+      setError(FALLBACK_AI_ERROR);
     } finally {
       setIsLoading(false);
     }
