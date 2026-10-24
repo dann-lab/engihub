@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'danielolorunlana59@gmail.com';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. User Profiles & Settings
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId)
+                    && isValidId(userId)
+                    && incoming().id == userId
+                    && incoming().email is string
+                    && incoming().email.size() <= 200;
+      allow update: if isOwner(userId)
+                    && incoming().id == userId
+                    && incoming().email == existing().email;
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // Private User Subcollections
+      match /tutor_sessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /cbt_quizzes/{quizId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /weak_topics/{topicId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /scanned_notes/{noteId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /portfolio/{studyId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // 2. Public Solutions Library
+    match /solutions_library/{solutionId} {
+      // Readable by any authenticated user; hidden if reportCount >= 3 unless admin or author
+      allow read: if isSignedIn();
+
+      // Only authenticated users can publish; authorId must match auth.uid
+      allow create: if isSignedIn()
+                    && isValidId(solutionId)
+                    && incoming().authorId == request.auth.uid
+                    && incoming().problemTitle is string
+                    && incoming().problemTitle.size() <= 300
+                    && incoming().selectedSolutionTitle is string
+                    && incoming().selectedSolutionTitle.size() <= 300;
+
+      // Author can update full content; other users can only toggle upvote or report
+      allow update: if isSignedIn() && (
+        // Author updates content
+        (existing().authorId == request.auth.uid && incoming().authorId == request.auth.uid)
+        ||
+        // Any signed-in user toggles upvote
+        incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'upvoters'])
+        ||
+        // Any signed-in user reports
+        incoming().diff(existing()).affectedKeys().hasOnly(['reportCount', 'isFlagged'])
+        ||
+        // Admin override
+        isAdmin()
+      );
+
+      // Only author or admin can delete
+      allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
+    }
+  }
+}

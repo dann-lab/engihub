@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile, academic info, and preferences",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "university": { "type": "string" },
+        "department": { "type": "string" },
+        "level": { "type": "string" },
+        "courses": { "type": "array" },
+        "onboardingCompleted": { "type": "boolean" },
+        "lowDataMode": { "type": "boolean" },
+        "theme": { "type": "string" },
+        "studyStreakDays": { "type": "number" },
+        "lastActiveDate": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "email", "onboardingCompleted"]
+    },
+    "TutorSession": {
+      "title": "TutorSession",
+      "description": "One-on-one baby-step engineering tutor session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "topic": { "type": "string" },
+        "course": { "type": "string" },
+        "steps": { "type": "array" },
+        "currentStepIndex": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "topic", "course"]
+    },
+    "CBTRecord": {
+      "title": "CBTRecord",
+      "description": "Completed CBT practice test results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "topic": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "completedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "topic", "score", "totalQuestions"]
+    },
+    "WeakTopicRecord": {
+      "title": "WeakTopicRecord",
+      "description": "Mistakes recorded from CBT for revision",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "topic": { "type": "string" },
+        "subtopic": { "type": "string" },
+        "incorrectCount": { "type": "number" },
+        "totalEncountered": { "type": "number" },
+        "suggestedRevision": { "type": "string" },
+        "lastMissedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "topic", "subtopic"]
+    },
+    "ScannedNote": {
+      "title": "ScannedNote",
+      "description": "Saved handwritten or printed note transcription",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "extractedText": { "type": "string" },
+        "mode": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "extractedText"]
+    },
+    "PortfolioCaseStudy": {
+      "title": "PortfolioCaseStudy",
+      "description": "Professional engineering case study export",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "authorName": { "type": "string" },
+        "university": { "type": "string" },
+        "department": { "type": "string" },
+        "level": { "type": "string" },
+        "executiveSummary": { "type": "string" },
+        "problemStatement": { "type": "string" },
+        "technicalMethodology": { "type": "string" },
+        "mathematicalValidation": { "type": "string" },
+        "bemeCostSummaryNaira": { "type": "number" },
+        "safetyAndEthics": { "type": "string" },
+        "resultsAndImpact": { "type": "string" },
+        "lessonsLearned": { "type": "array" },
+        "skillsDemonstrated": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "executiveSummary"]
+    },
+    "CommunitySolution": {
+      "title": "CommunitySolution",
+      "description": "Public engineering solution blueprint for local challenges",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUniversity": { "type": "string" },
+        "problemTitle": { "type": "string" },
+        "localContext": { "type": "string" },
+        "stateOrRegion": { "type": "string" },
+        "field": { "type": "string" },
+        "breakdown": { "type": "string" },
+        "rootCauses": { "type": "array" },
+        "solutionOptions": { "type": "array" },
+        "selectedSolutionTitle": { "type": "string" },
+        "governingFormulas": { "type": "string" },
+        "sampleCalculations": { "type": "string" },
+        "materialsList": { "type": "array" },
+        "bemeEstimate": { "type": "array" },
+        "totalEstimatedCostNaira": { "type": "number" },
+        "safetyAlerts": { "type": "array" },
+        "feasibility": { "type": "object" },
+        "buildPlanSteps": { "type": "array" },
+        "upvotes": { "type": "number" },
+        "upvoters": { "type": "array" },
+        "reportCount": { "type": "number" },
+        "isFlagged": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "authorId", "problemTitle", "selectedSolutionTitle"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profile and academic preferences"
+    },
+    "/users/{userId}/tutor_sessions/{sessionId}": {
+      "schema": "TutorSession",
+      "description": "Private user tutor sessions"
+    },
+    "/users/{userId}/cbt_quizzes/{quizId}": {
+      "schema": "CBTRecord",
+      "description": "Private user CBT quiz history"
+    },
+    "/users/{userId}/weak_topics/{topicId}": {
+      "schema": "WeakTopicRecord",
+      "description": "Private weak topics identified for the student"
+    },
+    "/users/{userId}/scanned_notes/{noteId}": {
+      "schema": "ScannedNote",
+      "description": "Private student scanned documents"
+    },
+    "/users/{userId}/portfolio/{studyId}": {
+      "schema": "PortfolioCaseStudy",
+      "description": "Private student case study portfolio"
+    },
+    "/solutions_library/{solutionId}": {
+      "schema": "CommunitySolution",
+      "description": "Public community engineering solutions library"
+    }
+  }
+}

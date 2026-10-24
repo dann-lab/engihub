@@ -1,0 +1,8 @@
+{
+  "name": "EngiHub",
+  "description": "AI-powered learning and community problem-solving platform for Nigerian engineering students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
