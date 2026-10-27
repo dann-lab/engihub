@@ -2,9 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * EngiHub AI Tutor
- * Board-work and textbook derivation presentation.
- * Step-gated instruction from zero, defining every term on first appearance.
+ * EngiHub AI Engineering Tutor
+ * Step-by-step mathematical derivations and engineering theory.
+ * Features:
+ * - 10 Core Engineering Course Cards with hand-crafted illustrated covers
+ * - Low-data mode optimization
+ * - Inline SVG engineering diagrams with labelled components
+ * - Mermaid flowchart support
+ * - Baby-step progression and "I'm Lost" Nigerian real-life analogies
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -21,13 +26,15 @@ import {
   RotateCcw,
   CheckCircle2,
   Send,
-  AlertCircle
+  AlertCircle,
+  Lightbulb
 } from 'lucide-react';
 
-const PRESET_COURSES = [
+export const ALL_10_COURSES = [
   {
     name: 'Thermodynamics',
     code: 'MEE 301',
+    description: 'Closed systems, Diesel/Otto cycles, second law & entropy.',
     topics: [
       'First Law of Thermodynamics & Closed System Analysis',
       'Carnot Engine Efficiency & Reversibility Limits',
@@ -37,8 +44,20 @@ const PRESET_COURSES = [
     ]
   },
   {
+    name: 'Engineering Materials',
+    code: 'MEE 205',
+    description: 'Phase diagrams, Fe-C equilibrium, heat treatments & corrosion.',
+    topics: [
+      'Iron-Carbon Phase Equilibrium & Eutectoid Invariant Points',
+      'Heat Treatment Metallurgy: Quenching, Annealing & Normalizing',
+      'Crystal Lattice Dislocation Dynamics & Work Hardening',
+      'Electrochemical Corrosion of Reinforced Concrete in Coastal Nigeria'
+    ]
+  },
+  {
     name: 'Differential Equations',
     code: 'MTH 201',
+    description: 'Exact equations, second-order linear ODEs & Laplace transforms.',
     topics: [
       'First-Order Exact Equations & Integrating Factors',
       'Second-Order Linear ODEs with Constant Coefficients',
@@ -48,18 +67,31 @@ const PRESET_COURSES = [
     ]
   },
   {
-    name: 'Engineering Materials',
-    code: 'MEE 205',
+    name: 'Complex Analysis',
+    code: 'MTH 301',
+    description: 'Cauchy-Riemann equations, contour integration & residue calculus.',
     topics: [
-      'Iron-Carbon Phase Equilibrium & Eutectoid Invariant Points',
-      'Heat Treatment Metallurgy: Quenching, Annealing & Normalizing',
-      'Crystal Lattice Dislocation Dynamics & Work Hardening',
-      'Electrochemical Corrosion of Reinforced Concrete in Coastal Nigeria'
+      'Cauchy-Riemann Equations & Analytic Functions',
+      'Cauchy Integral Theorem & Path Independence',
+      'Residue Theorem & Evaluating Real Definite Integrals',
+      'Conformal Mapping in Fluid Flow & Electrostatics'
+    ]
+  },
+  {
+    name: 'Workshop Practice',
+    code: 'MEE 101/201',
+    description: 'Lathe kinematics, cutting tool geometry, welding & metrology.',
+    topics: [
+      'Lathe Cutting Speed, Feed Rate & Machining Power Calculations',
+      'TIG and MMA Shielded Arc Welding Metallurgy',
+      'Metrology: Vernier Caliper & Micrometer Error Corrections',
+      'Foundry Sand Casting & Pattern Shrinkage Allowances'
     ]
   },
   {
     name: 'Fluid Mechanics',
     code: 'CEE / MEE 303',
+    description: 'Hydrostatics, Bernoulli sizing, pipe network friction & pump head.',
     topics: [
       'Hydrostatic Pressure & Center of Pressure on Submerged Sluice Gates',
       'Bernoulli Equation & Torricelli Venturi Discharge Sizing',
@@ -68,32 +100,67 @@ const PRESET_COURSES = [
     ]
   },
   {
-    name: 'Workshop Practice & Metallurgy',
-    code: 'MEE 101/201',
+    name: 'Circuit Theory',
+    code: 'EEE 201 / 301',
+    description: 'Thevenin/Norton equivalents, RLC transients, AC power & phasor analysis.',
     topics: [
-      'Lathe Cutting Speed, Feed Rate & Machining Power Calculations',
-      'TIG and MMA Shielded Arc Welding Metallurgy',
-      'Metrology: Vernier Caliper & Micrometer Error Corrections'
+      'Thevenin and Norton Equivalent Circuit Derivations',
+      'Second-Order RLC Transient Response: Damped Oscillations',
+      'AC Complex Power, Power Factor Correction & Phasors',
+      'Two-Port Network Parameters (Z, Y, ABCD matrices)'
+    ]
+  },
+  {
+    name: 'Strength of Materials',
+    code: 'MEE / CVE 305',
+    description: 'Mohr’s circle, shear force/bending moments & Euler buckling.',
+    topics: [
+      'Mohr\'s Circle & Principal Stress Tensors in 2D Plane Stress',
+      'Shear Force & Bending Moment Equations for Cantilever Beams',
+      'Euler Column Buckling Theory & Slenderness Ratio Criteria',
+      'Torsion in Thin-Walled Hollow Cylinders & Shaft Power Sizing'
+    ]
+  },
+  {
+    name: 'Engineering Drawing',
+    code: 'MEE 102 / 202',
+    description: 'Orthographic projections, isometric views, sections & tolerances.',
+    topics: [
+      'First Angle vs Third Angle Orthographic Projections',
+      'Isometric and Axonometric Technical Projections',
+      'Sectional Views, Hatching Rules & Revolved Sections',
+      'Geometric Dimensioning & Tolerancing (GD&T) Standards'
+    ]
+  },
+  {
+    name: 'Programming',
+    code: 'CSC 201 / EEE 305',
+    description: 'Engineering algorithms, numerical methods, arrays & flowcharts.',
+    topics: [
+      'Newton-Raphson Numerical Root Finding Algorithm',
+      'Runge-Kutta 4th Order Numerical Integration for ODEs',
+      'Matrix Inversion & Gaussian Elimination in C / Python',
+      'Microcontroller Digital I/O & Interrupt Service Routines'
     ]
   }
 ];
 
 export const AITutor: React.FC = () => {
   const { currentUser, userProfile, updateProfileData } = useAuth();
-  const [selectedCourse, setSelectedCourse] = useState(PRESET_COURSES[0].name);
-  const [topicInput, setTopicInput] = useState(PRESET_COURSES[0].topics[0]);
+  const [selectedCourse, setSelectedCourse] = useState(ALL_10_COURSES[0].name);
+  const [topicInput, setTopicInput] = useState(ALL_10_COURSES[0].topics[0]);
   const [customQuestion, setCustomQuestion] = useState('');
 
   // Active Session State
   const [currentSession, setCurrentSession] = useState<TutorSession | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamBuffer, setStreamBuffer] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [pastSessions, setPastSessions] = useState<TutorSession[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isLowData = Boolean(userProfile?.lowDataMode);
 
-  // Load sessions from Firestore
+  // Load past sessions from Firestore
   useEffect(() => {
     if (currentUser) {
       firestoreService.getTutorSessions(currentUser.uid).then(setPastSessions).catch(console.error);
@@ -101,10 +168,10 @@ export const AITutor: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    if (isStreaming || streamBuffer) {
+    if (isStreaming || currentSession?.steps.length) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [streamBuffer, isStreaming, currentSession?.steps]);
+  }, [isStreaming, currentSession?.steps]);
 
   const handleStartSession = async (topicToUse?: string) => {
     const t = topicToUse || topicInput;
@@ -134,7 +201,6 @@ export const AITutor: React.FC = () => {
   ) => {
     if (!currentUser) return;
     setIsStreaming(true);
-    setStreamBuffer('');
     setErrorMessage('');
 
     try {
@@ -150,7 +216,7 @@ export const AITutor: React.FC = () => {
         })),
         isLostAnalogy: isLost,
         studentQuestion: studentQ,
-        lowDataMode: userProfile?.lowDataMode || false
+        lowDataMode: isLowData
       });
 
       const fullContent = data.text || data.reply || '';
@@ -161,27 +227,26 @@ export const AITutor: React.FC = () => {
       const newStep: TutorStep = {
         id: `step_${Date.now()}`,
         stepNumber: stepNum,
-        title: isLost ? `Step ${stepNum}: Physical Analogy & Intuition` : `Step ${stepNum}: First Principles & Calculation`,
+        title: isLost ? 'Everyday Analogy' : `Step ${stepNum}`,
         content: fullContent,
         isLostAnalogy: isLost,
         timestamp: Date.now()
       };
 
+      const updatedSteps = [...session.steps, newStep];
       const updatedSession: TutorSession = {
         ...session,
-        steps: [...session.steps, newStep],
-        currentStepIndex: stepNum,
+        steps: updatedSteps,
+        currentStepIndex: isLost ? stepNum : stepNum + 1,
         updatedAt: Date.now()
       };
 
       setCurrentSession(updatedSession);
-      setStreamBuffer('');
       await firestoreService.saveTutorSession(currentUser.uid, updatedSession);
 
-      const refreshed = await firestoreService.getTutorSessions(currentUser.uid);
-      setPastSessions(refreshed);
+      // Refresh past sessions
+      firestoreService.getTutorSessions(currentUser.uid).then(setPastSessions).catch(console.error);
     } catch (err: any) {
-      console.error('Tutor step error:', err);
       setErrorMessage(FALLBACK_AI_ERROR);
     } finally {
       setIsStreaming(false);
@@ -194,9 +259,9 @@ export const AITutor: React.FC = () => {
     streamTutorStep(currentSession, nextStepNum, false);
   };
 
-  const handleImLost = () => {
+  const handleLost = () => {
     if (!currentSession || isStreaming) return;
-    const currentStepNum = currentSession.steps.length || 1;
+    const currentStepNum = currentSession.steps.length;
     streamTutorStep(currentSession, currentStepNum, true);
   };
 
@@ -217,52 +282,59 @@ export const AITutor: React.FC = () => {
     }
   };
 
-  const isMastered = currentSession && userProfile?.topicsMastered.includes(currentSession.topic);
+  const isMastered = Boolean(currentSession && userProfile?.topicsMastered.includes(currentSession.topic));
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      {/* Title */}
-      <div className="border-b border-[#2C3038] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Module Title */}
+      <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="font-mono text-[10px] tracking-wider uppercase text-[#EA580C] font-semibold block mb-1">
-            Module 01 // Board-Work Engine
-          </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#F5F5F4]">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#C67D0A] dark:text-[#E0A844]">
+              Step-by-Step Board
+            </span>
+            <span className="text-[#687D72] dark:text-[#6E8578]">·</span>
+            <span className="text-xs text-[#687D72] dark:text-[#AEC1B6]">
+              Nigerian University Benchmarks
+            </span>
+          </div>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#142E22] dark:text-[#F6F3EE]">
             AI Engineering Tutor
           </h1>
-          <p className="text-xs text-[#A8A29E] mt-0.5">
-            Exhaustive, unabbreviated derivations. One baby step at a time.
+          <p className="text-sm text-[#405449] dark:text-[#AEC1B6] mt-0.5">
+            Exhaustive derivations starting from governing equations. Definitions for every term, inline SVG diagrams, and real-life Nigerian analogies.
           </p>
         </div>
 
         {currentSession && (
           <button
             onClick={() => setCurrentSession(null)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#1F2228] border border-[#2C3038] text-xs font-mono text-[#F5F5F4] hover:border-[#EA580C] transition-colors self-start sm:self-auto"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#F5EFE6] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] hover:border-[#1B4332] dark:hover:border-[#52B788] transition-colors self-start sm:self-auto"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Change Course</span>
+            <span>Switch Topic</span>
           </button>
         )}
       </div>
 
       {!currentSession ? (
-        /* Setup / Course Selector */
+        /* Course Selector & 10 Course Cards */
         <div className="space-y-6">
-          <div className="p-5 sm:p-6 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-5">
+          <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-5">
             <div>
-              <span className="text-xs font-mono text-[#EA580C] uppercase font-semibold block mb-1">
-                Select Course
-              </span>
-              <p className="text-xs text-[#A8A29E]">
-                Aligned with Nigerian university engineering faculty benchmarks.
+              <h2 className="font-serif text-lg font-bold text-[#142E22] dark:text-[#F6F3EE]">
+                Select an Engineering Course
+              </h2>
+              <p className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5">
+                Choose any of the 10 university syllabus courses to explore worked derivations.
               </p>
             </div>
 
-            {/* Course grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-              {PRESET_COURSES.map((c) => {
+            {/* 10 Course Cards Grid - Clean, Typographic, No Pictures */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ALL_10_COURSES.map((c) => {
                 const isSelected = selectedCourse === c.name;
+
                 return (
                   <button
                     key={c.name}
@@ -270,33 +342,52 @@ export const AITutor: React.FC = () => {
                       setSelectedCourse(c.name);
                       setTopicInput(c.topics[0]);
                     }}
-                    className={`p-3 rounded-[3px] text-left border transition-colors ${
+                    className={`p-4 rounded-xl text-left border transition-all flex flex-col justify-between tap-target-base ${
                       isSelected
-                        ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                        : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
+                        ? 'border-[#1B4332] dark:border-[#E0A844] ring-2 ring-[#1B4332]/20 dark:ring-[#E0A844]/20 shadow-xs bg-[#FAF6EE] dark:bg-[#1A3328]'
+                        : 'border-[#E8E1D3] dark:border-[#234436] hover:border-[#1B4332]/40 bg-white dark:bg-[#11221B]'
                     }`}
                   >
-                    <span className="block font-mono text-[10px] text-[#EA580C] font-semibold">{c.code}</span>
-                    <span className="block text-xs font-semibold mt-0.5 truncate">{c.name}</span>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-[#1B4332]/10 dark:bg-[#E0A844]/15 text-[#1B4332] dark:text-[#E0A844]">
+                          {c.code}
+                        </span>
+                        {isSelected && (
+                          <span className="w-2 h-2 rounded-full bg-[#1B4332] dark:bg-[#E0A844]" />
+                        )}
+                      </div>
+                      <h3 className="font-serif text-sm font-bold text-[#142E22] dark:text-[#F6F3EE] mt-2.5">
+                        {c.name}
+                      </h3>
+                      <p className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-1 leading-relaxed">
+                        {c.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-[#E8E1D3]/60 dark:border-[#234436]/60 flex items-center justify-between text-[11px] text-[#687D72] dark:text-[#6E8578]">
+                      <span>{c.topics.length} syllabus topics</span>
+                      <span className="font-medium text-[#1B4332] dark:text-[#E0A844]">&rarr;</span>
+                    </div>
                   </button>
                 );
               })}
             </div>
 
             {/* Topic choices */}
-            <div>
-              <label className="block text-[11px] font-mono text-[#A8A29E] mb-2">
+            <div className="pt-2 border-t border-[#E8E1D3] dark:border-[#234436]">
+              <label className="block text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] mb-2">
                 Standard Topics in {selectedCourse}:
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_COURSES.find((c) => c.name === selectedCourse)?.topics.map((t) => (
+              <div className="flex flex-wrap gap-2">
+                {ALL_10_COURSES.find((c) => c.name === selectedCourse)?.topics.map((t) => (
                   <button
                     key={t}
                     onClick={() => setTopicInput(t)}
-                    className={`text-xs px-3 py-1.5 rounded-[3px] border text-left transition-colors ${
+                    className={`text-xs px-3.5 py-2 rounded-lg border text-left transition-colors ${
                       topicInput === t
-                        ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4] font-medium'
-                        : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
+                        ? 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] dark:border-[#2D6A4F] text-white font-semibold'
+                        : 'bg-[#F5EFE6] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22] dark:hover:text-[#F6F3EE]'
                     }`}
                   >
                     {t}
@@ -305,66 +396,79 @@ export const AITutor: React.FC = () => {
               </div>
             </div>
 
-            {/* Custom topic */}
-            <div>
-              <label className="block text-[11px] font-mono text-[#A8A29E] mb-1">
-                Or Enter Any Specific Engineering Problem / Topic:
+            {/* Custom problem or topic input */}
+            <div className="pt-2">
+              <label className="block text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] mb-1.5">
+                Or Enter Any Specific Engineering Problem:
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={topicInput}
                   onChange={(e) => setTopicInput(e.target.value)}
-                  placeholder="e.g. Sizing a pelton wheel turbine runner, Mohr's circle stress transformation..."
-                  className="flex-1 px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+                  placeholder="e.g. Sizing a Pelton wheel turbine runner, Mohr's circle plane stress..."
+                  className="flex-1 px-4 py-2.5 rounded-lg border bg-white dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-xs text-[#142E22] dark:text-[#F6F3EE] focus:outline-hidden focus:ring-2 focus:ring-[#1B4332] dark:focus:ring-[#2D6A4F]"
                 />
                 <button
                   onClick={() => handleStartSession()}
                   disabled={!topicInput.trim() || isStreaming}
-                  className="px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-colors disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-lg bg-[#1B4332] dark:bg-[#2D6A4F] hover:bg-[#143427] dark:hover:bg-[#40916C] text-white text-xs font-semibold tracking-wide transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 tap-target-base"
                 >
-                  Start From Zero &rarr;
+                  <span>Start Derivation</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#DDA15E]" />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Past Sessions */}
-          {pastSessions.length > 0 && (
-            <div className="p-5 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-3">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[#78716C] block">
-                Saved Offline Lessons ({pastSessions.length})
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {pastSessions.slice(0, 4).map((s) => (
+          {/* Past Sessions List */}
+          <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#687D72] dark:text-[#6E8578] block">
+              Saved Lesson History ({pastSessions.length})
+            </span>
+
+            {pastSessions.length === 0 ? (
+              <div className="text-center py-6 flex flex-col items-center">
+                <BookOpen className="w-7 h-7 text-[#687D72] dark:text-[#6E8578] mb-2 opacity-50" />
+                <p className="text-xs text-[#687D72] dark:text-[#6E8578]">
+                  No past derivations on record. Pick a course above to start learning.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {pastSessions.slice(0, 6).map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setCurrentSession(s)}
-                    className="p-3 rounded-[3px] bg-[#121316] border border-[#2C3038] hover:border-[#EA580C] text-left transition-colors flex items-center justify-between"
+                    className="p-3.5 rounded-lg bg-[#F5EFE6] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] hover:border-[#1B4332] dark:hover:border-[#E0A844] text-left transition-colors flex items-center justify-between"
                   >
                     <div className="truncate mr-2">
-                      <span className="text-[10px] font-mono text-[#EA580C] block">{s.course}</span>
-                      <span className="text-xs font-semibold text-[#F5F5F4] truncate block">{s.topic}</span>
+                      <span className="text-[10px] font-mono text-[#C67D0A] dark:text-[#E0A844] block font-semibold">
+                        {s.course}
+                      </span>
+                      <span className="text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] truncate block">
+                        {s.topic}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#78716C] shrink-0">
+                    <span className="text-[10px] font-mono text-[#687D72] dark:text-[#6E8578] shrink-0">
                       {s.steps.length} steps
                     </span>
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         /* Active Board Session */
-        <div className="space-y-6">
-          {/* Top metadata strip */}
-          <div className="p-3.5 rounded-[4px] bg-[#181A1F] border border-[#2C3038] flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-5">
+          {/* Active Derivation Header */}
+          <div className="p-5 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="font-mono text-[10px] text-[#EA580C] uppercase block">
-                {currentSession.course}
+              <span className="text-xs font-mono text-[#C67D0A] dark:text-[#E0A844] uppercase font-semibold">
+                {currentSession.course} · Derivation Board
               </span>
-              <h2 className="font-serif text-base sm:text-lg font-bold text-[#F5F5F4]">
+              <h2 className="font-serif text-xl font-bold text-[#142E22] dark:text-[#F6F3EE] mt-0.5">
                 {currentSession.topic}
               </h2>
             </div>
@@ -372,121 +476,124 @@ export const AITutor: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleMarkMastered}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-mono border transition-colors ${
+                disabled={isMastered}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                   isMastered
-                    ? 'bg-[#1F2228] text-emerald-400 border-emerald-600/50'
-                    : 'bg-[#121316] text-[#78716C] border-[#2C3038] hover:text-[#F5F5F4]'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-[#F5EFE6] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]'
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{isMastered ? 'Mastered' : 'Mark Mastered'}</span>
+                <span>{isMastered ? 'Mastered' : 'Mark as Mastered'}</span>
               </button>
-              <span className="px-2 py-1 rounded-[3px] bg-[#121316] border border-[#2C3038] font-mono text-xs text-[#EA580C]">
-                Step {currentSession.steps.length}
-              </span>
             </div>
           </div>
 
-          {/* Worked Steps Presentation */}
+          {/* Derivation Steps Flow */}
           <div className="space-y-4">
             {currentSession.steps.map((step) => (
               <div
                 key={step.id}
-                className={`p-5 sm:p-6 rounded-[4px] border ${
+                className={`p-6 rounded-xl border paper-shadow-sm transition-colors ${
                   step.isLostAnalogy
-                    ? 'bg-[#1F2228] border-[#EA580C]/40'
-                    : 'bg-[#181A1F] border-[#2C3038]'
+                    ? 'bg-[#FDF4E5] dark:bg-[#1D2B20] border-[#E8D4B0] dark:border-[#325C4B]'
+                    : 'bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436]'
                 }`}
               >
-                <div className="border-b border-[#2C3038] pb-3 mb-4 flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold text-[#EA580C]">
-                    {step.title}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#78716C]">
+                <div className="flex items-center justify-between border-b border-[#E8E1D3] dark:border-[#234436] pb-2.5 mb-4">
+                  <div className="flex items-center gap-2">
+                    {step.isLostAnalogy ? (
+                      <Lightbulb className="w-4 h-4 text-[#C67D0A] dark:text-[#E0A844]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-[#1B4332] dark:bg-[#52B788]" />
+                    )}
+                    <span className="font-serif text-sm font-bold text-[#142E22] dark:text-[#F6F3EE]">
+                      {step.title}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-[#687D72] dark:text-[#6E8578]">
                     {new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
+
                 <MarkdownView content={step.content} />
               </div>
             ))}
 
-            {/* In-flight streaming block */}
             {isStreaming && (
-              <div className="p-5 sm:p-6 rounded-[4px] bg-[#181A1F] border border-[#EA580C]/40 space-y-4">
-                <div className="border-b border-[#2C3038] pb-2 flex items-center justify-between">
-                  <span className="font-mono text-xs text-[#EA580C] animate-pulse">
-                    Deriving next step from first principles...
-                  </span>
-                </div>
-                {streamBuffer ? (
-                  <MarkdownView content={streamBuffer} />
-                ) : (
-                  <Skeleton lines={4} />
-                )}
+              <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-3">
+                <span className="font-mono text-xs text-[#C67D0A] dark:text-[#E0A844] font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#C67D0A] animate-ping" />
+                  Deriving next step from first principles...
+                </span>
+                <Skeleton lines={4} />
               </div>
             )}
 
             {errorMessage && (
-              <div className="p-3 rounded-[3px] bg-[#450A0A] border border-[#DC2626]/50 text-xs text-[#FCA5A5] flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errorMessage}</span>
+              <div className="p-5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-center space-y-2">
+                <AlertCircle className="w-6 h-6 text-red-500 mx-auto opacity-70" />
+                <p className="text-xs text-red-700 dark:text-red-300 font-medium">
+                  {errorMessage}
+                </p>
+                <button
+                  onClick={handleNextStep}
+                  className="mt-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold"
+                >
+                  Try Again
+                </button>
               </div>
             )}
 
             <div ref={bottomRef} />
           </div>
 
-          {/* Next Step / I'm Lost Control Strip */}
+          {/* Baby Step Progression Bar */}
           {!isStreaming && currentSession.steps.length > 0 && (
-            <div className="p-4 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-3 sticky bottom-4 z-20 shadow-xl">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <span className="font-mono text-xs font-semibold text-[#F5F5F4] block">
-                    Step {currentSession.steps.length} complete.
-                  </span>
-                  <span className="text-xs text-[#78716C]">
-                    Ready for the next step?
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={handleImLost}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[3px] bg-[#1F2228] hover:bg-[#282C34] border border-[#2C3038] text-xs font-mono text-[#EA580C] transition-colors"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span>"I'm Lost" (Simpler Analogy)</span>
-                  </button>
-
-                  <button
-                    onClick={handleNextStep}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-colors"
-                  >
-                    <span>Next Step</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+            <div className="p-5 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-[#405449] dark:text-[#AEC1B6]">
+                Understood the physics so far? Continue to the next substitution or ask for an analogy.
               </div>
 
-              {/* Follow-up question input */}
-              <form onSubmit={handleAskFollowUp} className="flex gap-2 pt-2 border-t border-[#2C3038]">
-                <input
-                  type="text"
-                  value={customQuestion}
-                  onChange={(e) => setCustomQuestion(e.target.value)}
-                  placeholder="Ask a specific question about this step..."
-                  className="flex-1 px-3 py-1.5 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
-                />
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
-                  type="submit"
-                  disabled={!customQuestion.trim()}
-                  className="px-3 py-1.5 rounded-[3px] bg-[#1F2228] border border-[#2C3038] text-xs text-[#F5F5F4] hover:border-[#EA580C] disabled:opacity-40 transition-colors"
+                  onClick={handleLost}
+                  className="flex-1 sm:flex-initial px-4 py-2 rounded-lg bg-[#F5EFE6] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-xs font-medium text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22] dark:hover:text-[#F6F3EE] transition-colors tap-target-base flex items-center justify-center gap-1.5"
                 >
-                  <Send className="w-3.5 h-3.5 text-[#EA580C]" />
+                  <HelpCircle className="w-3.5 h-3.5 text-[#C67D0A] dark:text-[#E0A844]" />
+                  <span>"I'm Lost" (Simpler Analogy)</span>
                 </button>
-              </form>
+
+                <button
+                  onClick={handleNextStep}
+                  className="flex-1 sm:flex-initial px-5 py-2 rounded-lg bg-[#1B4332] dark:bg-[#2D6A4F] hover:bg-[#143427] dark:hover:bg-[#40916C] text-white text-xs font-semibold shadow-xs transition-colors tap-target-base flex items-center justify-center gap-1.5"
+                >
+                  <span>Next Step</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#DDA15E]" />
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Ask Specific Clarification in this Derivation */}
+          <form onSubmit={handleAskFollowUp} className="flex gap-2">
+            <input
+              type="text"
+              value={customQuestion}
+              onChange={(e) => setCustomQuestion(e.target.value)}
+              placeholder="Ask a specific question about this derivation step..."
+              disabled={isStreaming}
+              className="flex-1 px-4 py-2.5 rounded-lg border bg-white dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-xs text-[#142E22] dark:text-[#F6F3EE] focus:outline-hidden focus:ring-2 focus:ring-[#1B4332] dark:focus:ring-[#2D6A4F]"
+            />
+            <button
+              type="submit"
+              disabled={isStreaming || !customQuestion.trim()}
+              className="px-4 py-2.5 rounded-lg bg-[#1B4332] dark:bg-[#2D6A4F] text-white text-xs font-semibold disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Send className="w-3 h-3" />
+              <span>Ask</span>
+            </button>
+          </form>
         </div>
       )}
     </div>

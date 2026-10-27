@@ -3,7 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type NavigationModule = 'tutor' | 'cbt' | 'scanner' | 'problem-lab' | 'portfolio' | 'dashboard' | 'settings' | 'admin';
+export type NavigationModule = 
+  | 'learn' 
+  | 'practice' 
+  | 'ask' 
+  | 'projects' 
+  | 'me' 
+  | 'help'
+  | 'tutor' 
+  | 'cbt' 
+  | 'scanner' 
+  | 'problem-lab' 
+  | 'portfolio' 
+  | 'dashboard' 
+  | 'settings' 
+  | 'admin';
 
 export type EngineeringField = 'mechanical' | 'electrical' | 'civil' | 'chemical' | 'agricultural' | 'general';
 
@@ -29,28 +43,86 @@ export interface TutorSession {
   updatedAt: number;
 }
 
+export type QuestionType = 'multiple_choice' | 'true_false' | 'fill_blank' | 'numeric_calc' | 'multi_select';
+
+export type CBTMode = 'practice' | 'exam_simulation' | 'quick_10' | 'weak_spot' | 'daily_challenge';
+
+export type CBTSource = 'course_topic' | 'free_text' | 'uploaded_note' | 'past_question';
+
 export interface CBTQuestion {
   id: string;
+  type: QuestionType;
   question: string;
-  options: string[];
-  correctAnswerIndex: number;
+  options?: string[];
+  correctAnswerIndex?: number;
+  correctAnswerIndices?: number[];
+  correctAnswerText?: string;
+  numericAnswer?: number;
+  numericTolerance?: number;
+  unit?: string;
   explanation: string;
+  conceptTested: string;
+  whyOtherOptionsWrong?: string;
   topic: string;
   subtopic: string;
   difficulty: DifficultyLevel;
   userSelectedIndex?: number;
+  userSelectedIndices?: number[];
+  userTextAnswer?: string;
+  userNumericAnswer?: number;
+  isCorrect?: boolean;
   isAnswered?: boolean;
+  isBookmarked?: boolean;
+  isFlagged?: boolean;
+  simplerExplanation?: string;
 }
 
 export interface CBTQuiz {
   id: string;
   topic: string;
+  course?: string;
+  mode: CBTMode;
   difficulty: DifficultyLevel;
   questions: CBTQuestion[];
   score: number;
   totalQuestions: number;
   completedAt?: number;
   durationSeconds: number;
+}
+
+export interface SpacedRepetitionItem {
+  id: string;
+  question: CBTQuestion;
+  reviewStage: 1 | 2 | 3 | 4; // 1 day, 3 days, 7 days, 14 days
+  nextReviewAt: number;
+  intervalDays: number;
+  consecutiveCorrect: number;
+  lastMissedAt: number;
+}
+
+export type AnswerStyle = 'quick' | 'step_by_step' | 'exam_answer' | 'deep_dive';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  sources?: Array<{ title: string; url: string }>;
+  attachment?: {
+    name: string;
+    type: string;
+    dataUrl?: string;
+  };
+  styleUsed?: AnswerStyle;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+  defaultStyle?: AnswerStyle;
 }
 
 export interface WeakTopic {
@@ -167,4 +239,31 @@ export interface AppSettings {
   university: string;
   department: string;
   level: string;
+}
+
+export type MessageCategory = 'Bug' | 'Account problem' | 'Question' | 'Suggestion' | 'Other';
+export type MessageStatus = 'New' | 'In progress' | 'Resolved';
+
+export interface SupportMessage {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  category: MessageCategory;
+  message: string;
+  screenshotUrl?: string;
+  screenshotBase64?: string;
+  device?: string;
+  browser?: string;
+  page?: string;
+  metadata?: {
+    device?: string;
+    browser?: string;
+    page?: string;
+  };
+  status: MessageStatus;
+  createdAt: number;
+  updatedAt: number;
+  adminReply?: string;
+  repliedAt?: number;
 }

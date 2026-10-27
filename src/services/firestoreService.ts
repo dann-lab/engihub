@@ -22,9 +22,12 @@ import { handleFirestoreError, OperationType } from './firestoreErrors';
 import {
   AppSettings,
   CBTQuiz,
+  ChatSession,
   CommunityProblemSolution,
   PortfolioCaseStudy,
   ScannedNoteRecord,
+  SpacedRepetitionItem,
+  SupportMessage,
   TutorSession,
   UserProgress,
   WeakTopic
@@ -418,6 +421,215 @@ class FirestoreService {
       await deleteDoc(doc(db, 'solutions_library', solutionId));
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  }
+
+  // 8. Spaced Repetition (Schedule: 1, 3, 7, 14 days)
+  async getSpacedRepetitionDue(userId: string): Promise<SpacedRepetitionItem[]> {
+    const path = `users/${userId}/spaced_repetition`;
+    try {
+      const snap = await getDocs(collection(db, 'users', userId, 'spaced_repetition'));
+      const items = snap.docs.map(d => d.data() as SpacedRepetitionItem);
+      const now = Date.now();
+      // Return items where nextReviewAt <= now, sorted by urgency
+      return items
+        .filter(item => item.nextReviewAt <= now + (2 * 60 * 60 * 1000)) // within 2 hours or overdue
+        .sort((a, b) => a.nextReviewAt - b.nextReviewAt);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async getAllSpacedRepetitionItems(userId: string): Promise<SpacedRepetitionItem[]> {
+    const path = `users/${userId}/spaced_repetition`;
+    try {
+      const snap = await getDocs(collection(db, 'users', userId, 'spaced_repetition'));
+      return snap.docs.map(d => d.data() as SpacedRepetitionItem);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async recordSpacedRepetitionQuestion(userId: string, question: any, wasCorrect: boolean): Promise<void> {
+    const qId = question.id || `${question.topic}_${question.question.slice(0, 20)}`.replace(/[^a-zA-Z0-9]/g, '_');
+    const path = `users/${userId}/spaced_repetition/${qId}`;
+    const SCHEDULE_DAYS = [1, 3, 7, 14];
+
+    try {
+      const itemRef = doc(db, 'users', userId, 'spaced_repetition', qId);
+      const snap = await getDoc(itemRef);
+
+      if (snap.exists()) {
+        const cur = snap.data() as SpacedRepetitionItem;
+        if (wasCorrect) {
+          const nextStage = Math.min(4, cur.reviewStage + 1) as 1 | 2 | 3 | 4;
+          const intervalDays = SCHEDULE_DAYS[nextStage - 1];
+          await setDoc(itemRef, {
+            ...cur,
+            reviewStage: nextStage,
+            intervalDays,
+            consecutiveCorrect: cur.consecutiveCorrect + 1,
+            nextReviewAt: Date.now() + intervalDays * 24 * 60 * 60 * 1000,
+          }, { merge: true });
+        } else {
+          // Missed again, reset to stage 1 (1 day)
+          await setDoc(itemRef, {
+            ...cur,
+            reviewStage: 1,
+            intervalDays: 1,
+            consecutiveCorrect: 0,
+            lastMissedAt: Date.now(),
+            nextReviewAt: Date.now() + 1 * 24 * 60 * 60 * 1000,
+          }, { merge: true });
+        }
+      } else if (!wasCorrect) {
+        // First time missed, create stage 1 (1 day)
+        const newItem: SpacedRepetitionItem = {
+          id: qId,
+          question,
+          reviewStage: 1,
+          intervalDays: 1,
+          consecutiveCorrect: 0,
+          lastMissedAt: Date.now(),
+          nextReviewAt: Date.now() + 1 * 24 * 60 * 60 * 1000,
+        };
+        await setDoc(itemRef, newItem);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+
+  // 9. Question Bookmarks
+  async getBookmarkedQuestions(userId: string): Promise<any[]> {
+    const path = `users/${userId}/bookmarks`;
+    try {
+      const snap = await getDocs(collection(db, 'users', userId, 'bookmarks'));
+      return snap.docs.map(d => d.data());
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async toggleBookmarkQuestion(userId: string, question: any): Promise<boolean> {
+    const qId = question.id || `${question.topic}_${question.question.slice(0, 20)}`.replace(/[^a-zA-Z0-9]/g, '_');
+    const path = `users/${userId}/bookmarks/${qId}`;
+    try {
+      const bRef = doc(db, 'users', userId, 'bookmarks', qId);
+      const snap = await getDoc(bRef);
+      if (snap.exists()) {
+        await deleteDoc(bRef);
+        return false;
+      } else {
+        await setDoc(bRef, {
+          ...question,
+          bookmarkedAt: Date.now()
+        });
+        return true;
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+      return false;
+    }
+  }
+
+  // 10. Persistent Ask Chats (Private Subcollection: /users/{uid}/chats)
+  async getChats(userId: string): Promise<ChatSession[]> {
+    const path = `users/${userId}/chats`;
+    try {
+      const q = query(collection(db, 'users', userId, 'chats'), orderBy('updatedAt', 'desc'), limit(30));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => d.data() as ChatSession);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async saveChat(userId: string, chat: ChatSession): Promise<void> {
+    const path = `users/${userId}/chats/${chat.id}`;
+    try {
+      await setDoc(doc(db, 'users', userId, 'chats', chat.id), chat, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+
+  async deleteChat(userId: string, chatId: string): Promise<void> {
+    const path = `users/${userId}/chats/${chatId}`;
+    try {
+      await deleteDoc(doc(db, 'users', userId, 'chats', chatId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  }
+
+  async renameChat(userId: string, chatId: string, newTitle: string): Promise<void> {
+    const path = `users/${userId}/chats/${chatId}`;
+    try {
+      await updateDoc(doc(db, 'users', userId, 'chats', chatId), {
+        title: DOMPurify.sanitize(newTitle),
+        updatedAt: Date.now()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  }
+
+  // 11. Support & Contact Messages (Collection: /messages)
+  async submitSupportMessage(msg: SupportMessage): Promise<void> {
+    const path = `messages/${msg.id}`;
+    try {
+      await setDoc(doc(db, 'messages', msg.id), {
+        ...msg,
+        name: DOMPurify.sanitize(msg.name),
+        message: DOMPurify.sanitize(msg.message),
+        category: msg.category
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+
+  async getUserMessages(userId: string): Promise<SupportMessage[]> {
+    const path = 'messages';
+    try {
+      const q = query(collection(db, 'messages'), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      const list = snap.docs.map(d => d.data() as SupportMessage);
+      return list.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async getAllMessages(): Promise<SupportMessage[]> {
+    const path = 'messages';
+    try {
+      const snap = await getDocs(collection(db, 'messages'));
+      const list = snap.docs.map(d => d.data() as SupportMessage);
+      return list.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, path);
+      return [];
+    }
+  }
+
+  async replyToMessage(messageId: string, replyText: string, status: 'New' | 'In progress' | 'Resolved'): Promise<void> {
+    const path = `messages/${messageId}`;
+    try {
+      await updateDoc(doc(db, 'messages', messageId), {
+        adminReply: DOMPurify.sanitize(replyText),
+        repliedAt: Date.now(),
+        status,
+        updatedAt: Date.now()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
     }
   }
 }

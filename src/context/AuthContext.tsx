@@ -160,7 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return auth.currentUser.getIdToken();
   };
 
-  const isAdmin = currentUser?.email === 'danielolorunlana59@gmail.com';
+  const ADMIN_EMAILS = ['dannistec3@gmail.com', 'danielolorunlana59@gmail.com'];
+  const isAdmin = !!currentUser?.email && ADMIN_EMAILS.includes(currentUser.email.toLowerCase().trim());
 
   return (
     <AuthContext.Provider

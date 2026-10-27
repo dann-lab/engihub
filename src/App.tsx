@@ -8,25 +8,28 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LandingPage } from './components/landing/LandingPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { OnboardingModal } from './components/auth/OnboardingModal';
-import { TopBar } from './components/navigation/TopBar';
-import { ModuleTabs } from './components/navigation/ModuleTabs';
-import { AITutor } from './components/modules/AITutor';
+import { Sidebar } from './components/navigation/Sidebar';
+import { MobileHeader } from './components/navigation/MobileHeader';
+import { BottomTabBar } from './components/navigation/BottomTabBar';
+import { LearnHub } from './components/modules/LearnHub';
 import { CBTEngine } from './components/modules/CBTEngine';
-import { NoteScanner } from './components/modules/NoteScanner';
-import { ProblemLab } from './components/modules/ProblemLab';
-import { PortfolioBuilder } from './components/modules/PortfolioBuilder';
-import { ProgressDashboard } from './components/modules/ProgressDashboard';
-import { SettingsView } from './components/modules/SettingsView';
+import { AskAssistant } from './components/modules/AskAssistant';
+import { ProjectsHub } from './components/modules/ProjectsHub';
+import { MeHub } from './components/modules/MeHub';
+import { HelpContact } from './components/modules/HelpContact';
 import { AdminView } from './components/modules/AdminView';
 import { Skeleton } from './components/common/Skeleton';
+import { QuietConfetti } from './utils/personality';
 import { CommunityProblemSolution, NavigationModule } from './types';
+import { HelpCircle } from 'lucide-react';
 
 function AppContent() {
   const { currentUser, userProfile, loading, isAdmin, updateProfileData } = useAuth();
-  const [activeModule, setActiveModule] = useState<NavigationModule>('dashboard');
+  const [activeModule, setActiveModule] = useState<NavigationModule>('learn');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // Inter-module bridges
   const [cbtNotesContext, setCbtNotesContext] = useState('');
@@ -70,21 +73,16 @@ function AppContent() {
   const handleLaunchCBTWithNotes = (notesText: string, topicName: string) => {
     setCbtNotesContext(notesText);
     setCbtTopicContext(topicName);
-    setActiveModule('cbt');
-  };
-
-  const handleSendToPortfolio = (solution: CommunityProblemSolution) => {
-    setIncomingProblemForPortfolio(solution);
-    setActiveModule('portfolio');
+    setActiveModule('practice');
   };
 
   // Initial Auth Loading Skeleton
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#121316] text-[#F5F5F4] flex flex-col justify-center items-center p-6 space-y-4">
+      <div className="min-h-screen bg-[#0B1612] text-[#F6F3EE] flex flex-col justify-center items-center p-6 space-y-4">
         <div className="max-w-md w-full space-y-3">
-          <span className="font-mono text-xs text-[#EA580C] uppercase tracking-wider block">
-            EngiHub // Verifying Workspace Session
+          <span className="font-mono text-xs text-[#C67D0A] dark:text-[#E0A844] uppercase tracking-wider block">
+            EngiHub · Opening Campus Workspace
           </span>
           <Skeleton lines={3} />
         </div>
@@ -106,68 +104,109 @@ function AppContent() {
     );
   }
 
-  // Authenticated: Render Workspace
+  // Authenticated: Render Campus Workspace
   const isLight = theme === 'light';
 
   return (
-    <div className={`min-h-screen flex flex-col ${isLight ? 'bg-[#FBF9F5] text-[#1C1917]' : 'bg-[#121316] text-[#F5F5F4]'} drafting-grid transition-colors`}>
+    <div className={`min-h-screen flex flex-col md:flex-row ${
+      isLight ? 'bg-[#FDFBF7] text-[#142E22]' : 'bg-[#0B1612] text-[#F6F3EE]'
+    } transition-colors`}>
       {/* Short onboarding modal for first-time sign-ins */}
       <OnboardingModal />
 
-      {/* Top Header */}
-      <TopBar
+      {/* Quiet celebratory confetti on CBT completion or milestones */}
+      {showConfetti && (
+        <QuietConfetti onComplete={() => setShowConfetti(false)} />
+      )}
+
+      {/* Desktop Left Sidebar */}
+      <Sidebar
         currentTheme={theme}
         onToggleTheme={toggleTheme}
         activeModule={activeModule}
         onSelectModule={setActiveModule}
       />
 
-      {/* Module Navigation Tabs */}
-      <ModuleTabs
+      {/* Mobile Top Header */}
+      <MobileHeader
+        currentTheme={theme}
+        onToggleTheme={toggleTheme}
         activeModule={activeModule}
-        onSelectModule={(mod) => {
-          if (mod !== 'cbt') setCbtNotesContext('');
-          setActiveModule(mod);
-        }}
+        onSelectModule={setActiveModule}
       />
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
-        {activeModule === 'dashboard' && (
-          <ProgressDashboard onNavigateToModule={setActiveModule} />
-        )}
-
-        {activeModule === 'tutor' && (
-          <AITutor />
-        )}
-
-        {activeModule === 'cbt' && (
-          <CBTEngine
-            initialTopic={cbtTopicContext}
-            notesContext={cbtNotesContext}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-12 min-h-screen overflow-y-auto">
+        {/* Core Tab 1: Learn (Tutor & Note Scanner) */}
+        {(activeModule === 'learn' || activeModule === 'tutor' || activeModule === 'scanner') && (
+          <LearnHub
+            initialSubTab={activeModule === 'scanner' ? 'scanner' : 'tutor'}
+            onLaunchCBTWithNotes={handleLaunchCBTWithNotes}
           />
         )}
 
-        {activeModule === 'scanner' && (
-          <NoteScanner onLaunchCBTWithNotes={handleLaunchCBTWithNotes} />
+        {/* Core Tab 2: Practice (CBT Exam Prep) */}
+        {(activeModule === 'practice' || activeModule === 'cbt') && (
+          <CBTEngine
+            initialTopic={cbtTopicContext}
+            notesContext={cbtNotesContext}
+            onComplete={() => setShowConfetti(true)}
+          />
         )}
 
-        {activeModule === 'problem-lab' && (
-          <ProblemLab onSendToPortfolio={handleSendToPortfolio} />
+        {/* Core Tab 3: Ask (AI Study Companion) */}
+        {activeModule === 'ask' && (
+          <AskAssistant />
         )}
 
-        {activeModule === 'portfolio' && (
-          <PortfolioBuilder incomingProblemSolution={incomingProblemForPortfolio} />
+        {/* Core Tab 4: Projects (Problem Lab & Portfolio) */}
+        {(activeModule === 'projects' || activeModule === 'problem-lab' || activeModule === 'portfolio') && (
+          <ProjectsHub
+            initialSubTab={activeModule === 'portfolio' ? 'portfolio' : 'lab'}
+            incomingProblemSolution={incomingProblemForPortfolio}
+          />
         )}
 
-        {activeModule === 'settings' && (
-          <SettingsView currentTheme={theme} onToggleTheme={toggleTheme} />
+        {/* Core Tab 5: Me (Academic Overview, Settings, Admin) */}
+        {(activeModule === 'me' || activeModule === 'dashboard' || activeModule === 'settings') && (
+          <MeHub
+            currentTheme={theme}
+            onToggleTheme={toggleTheme}
+            onNavigateToModule={setActiveModule}
+            initialSubTab={activeModule === 'settings' ? 'settings' : 'overview'}
+          />
         )}
 
+        {/* Help & Contact Desk */}
+        {activeModule === 'help' && (
+          <HelpContact />
+        )}
+
+        {/* Admin view for danielolorunlana59@gmail.com */}
         {activeModule === 'admin' && isAdmin && (
           <AdminView />
         )}
       </main>
+
+      {/* Floating "Report a problem" button accessible across all screens */}
+      {activeModule !== 'help' && (
+        <button
+          onClick={() => setActiveModule('help')}
+          title="Report a problem or get support"
+          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium paper-shadow-md border transition-all duration-200 bg-[#FDFBF7] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#223A30] text-[#405449] dark:text-[#AEC1B6] hover:text-[#1B4332] dark:hover:text-[#F6F3EE] hover:border-[#1B4332] dark:hover:border-[#325C4B] group"
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-[#C67D0A] dark:text-[#E0A844] group-hover:scale-110 transition-transform" />
+          <span className="hidden sm:inline">Report a problem</span>
+          <span className="sm:hidden">Help</span>
+        </button>
+      )}
+
+      {/* Mobile Bottom Tab Bar */}
+      <BottomTabBar
+        currentTheme={theme}
+        activeModule={activeModule}
+        onSelectModule={setActiveModule}
+      />
     </div>
   );
 }

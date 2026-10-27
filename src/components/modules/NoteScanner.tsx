@@ -2,8 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * EngiHub Note Scanner & OCR
- * Multimodal vision parsing of handwritten engineering notes and assignment papers.
+ * EngiHub Note Scanner & Assignment Solver
+ * Vision transcription of handwritten engineering notes and problem sheets.
+ * Warm Nigerian campus aesthetic: deep forest green, cream paper, sunny yellow-gold accents.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -59,63 +60,75 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       return;
     }
 
+    if (file.size > 4.5 * 1024 * 1024) {
+      setError('Image must be under 4.5MB to save data.');
+      return;
+    }
+
+    setError('');
     setFileName(file.name);
     setImageMime(file.type);
-    setError('');
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setSelectedImage(event.target?.result as string);
+      const dataUrl = event.target?.result as string;
+      setSelectedImage(dataUrl);
       setAnalysisText('');
     };
     reader.readAsDataURL(file);
   };
 
-  const handleLoadSample = () => {
-    setSelectedImage(`data:image/png;base64,${SAMPLE_IMAGE_BASE64}`);
-    setImageMime('image/png');
-    setFileName('thermo_diesel_assignment_sample.png');
-    setAnalysisText('');
+  const handleUseSample = () => {
     setError('');
+    setFileName('sample_thermodynamics_notes.jpg');
+    setImageMime('image/jpeg');
+    setSelectedImage(`data:image/jpeg;base64,${SAMPLE_IMAGE_BASE64}`);
+    setAnalysisText('');
   };
 
-  const handleRunAnalysis = async (action: NoteAnalysisMode) => {
-    if (!selectedImage || !currentUser) return;
-    setActiveAction(action);
+  const handleRunAnalysis = async (mode: NoteAnalysisMode) => {
+    if (!selectedImage || !currentUser) {
+      setError('Upload an image of your notes or problem sheet first.');
+      return;
+    }
+
+    setActiveAction(mode);
     setIsAnalyzing(true);
-    setAnalysisText('');
     setError('');
+    setAnalysisText('');
 
     try {
+      const base64Data = selectedImage.split(',')[1] || selectedImage;
+
       const data = await callNetlifyAI<{ text?: string; reply?: string }>({
         module: 'scanner',
-        image: selectedImage,
-        mimeType: imageMime,
-        action,
-        lowDataMode: userProfile?.lowDataMode || false
+        action: mode,
+        imageBase64: base64Data,
+        imageMimeType: imageMime,
+        fileName: fileName || 'Uploaded Note'
       });
 
-      const fullContent = data.text || data.reply || '';
-      if (!fullContent) {
+      const fullResult = data.text || data.reply || '';
+      if (!fullResult) {
         throw new Error(FALLBACK_AI_ERROR);
       }
 
-      setAnalysisText(fullContent);
+      setAnalysisText(fullResult);
 
-      const newRecord: ScannedNoteRecord = {
+      const record: ScannedNoteRecord = {
         id: `note_${Date.now()}`,
-        title: fileName || 'Scanned Engineering Document',
-        extractedText: fullContent,
-        mode: action,
-        analysisResult: fullContent,
+        title: fileName || 'Lecture Note Scan',
+        extractedText: fullResult,
+        mode: mode,
+        analysisResult: fullResult,
         timestamp: Date.now()
       };
 
-      await firestoreService.saveScannedNote(currentUser.uid, newRecord);
-      const refreshed = await firestoreService.getScannedNotes(currentUser.uid);
-      setSavedNotes(refreshed);
+      await firestoreService.saveScannedNote(currentUser.uid, record);
+      const updated = await firestoreService.getScannedNotes(currentUser.uid);
+      setSavedNotes(updated);
     } catch (err: any) {
-      console.error('Note scanner error:', err);
+      console.error('Note Scanner error:', err);
       setError(FALLBACK_AI_ERROR);
     } finally {
       setIsAnalyzing(false);
@@ -123,157 +136,151 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
   };
 
   const handleCopy = () => {
-    if (!analysisText) return;
     navigator.clipboard.writeText(analysisText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (noteId: string) => {
     if (!currentUser) return;
-    await firestoreService.deleteScannedNote(currentUser.uid, id);
-    const refreshed = await firestoreService.getScannedNotes(currentUser.uid);
-    setSavedNotes(refreshed);
+    await firestoreService.deleteScannedNote(currentUser.uid, noteId);
+    setSavedNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      <div className="border-b border-[#2C3038] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <span className="font-mono text-[10px] tracking-wider uppercase text-[#EA580C] font-semibold block mb-1">
-            Module 03 // Document Vision
+      {/* Title */}
+      <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <ScanText className="w-4 h-4 text-[#C67D0A] dark:text-[#E0A844]" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#C67D0A] dark:text-[#E0A844]">
+            Note Scanner & OCR
           </span>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#F5F5F4]">
-            Note Scanner & Assignment Solver
-          </h1>
-          <p className="text-xs text-[#A8A29E] mt-0.5">
-            Convert handwritten lecture notes into LaTeX math and derive assignment solutions.
-          </p>
         </div>
-
-        <button
-          onClick={handleLoadSample}
-          className="px-3 py-1.5 rounded-[3px] bg-[#1F2228] border border-[#2C3038] text-xs font-mono text-[#F5F5F4] hover:border-[#EA580C] transition-colors self-start sm:self-auto"
-        >
-          Load Diesel Assignment Sample
-        </button>
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#142E22] dark:text-[#F6F3EE]">
+          Handwritten Note Scanner & Assignment Solver
+        </h1>
+        <p className="text-sm text-[#405449] dark:text-[#AEC1B6] mt-0.5">
+          Snap a photo of your handwritten lecture notes or past question sheet. Transcribe into clean LaTeX, get explanations, or solve problems step by step.
+        </p>
       </div>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        className="hidden"
-      />
-
       {/* Upload Zone */}
-      <div className="p-5 sm:p-6 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-4">
+      <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-5">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
         {!selectedImage ? (
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border border-dashed border-[#2C3038] hover:border-[#EA580C] rounded-[3px] p-8 text-center cursor-pointer bg-[#121316] transition-colors"
+            className="border-2 border-dashed border-[#E8E1D3] dark:border-[#234436] hover:border-[#1B4332] dark:hover:border-[#52B788] rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-colors bg-[#FAF6EE] dark:bg-[#11221B]"
           >
-            <Upload className="w-6 h-6 text-[#EA580C] mx-auto mb-2" />
-            <h4 className="text-xs font-semibold text-[#F5F5F4]">
-              Select or Drop Handwritten Note / Assignment Photo
-            </h4>
-            <p className="text-[11px] text-[#78716C] mt-1 font-mono">
-              Supports JPEG, PNG, WebP up to 10MB
-            </p>
+            <div className="max-w-xs mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#162C23] border border-[#E8E1D3] dark:border-[#234436] flex items-center justify-center mx-auto text-[#1B4332] dark:text-[#E0A844] shadow-xs">
+                <Upload className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="font-serif text-sm font-bold text-[#142E22] dark:text-[#F6F3EE] block">
+                  Tap to upload handwritten page
+                </span>
+                <span className="text-xs text-[#687D72] dark:text-[#6E8578] block mt-0.5">
+                  JPEG, PNG, or WebP up to 4.5MB
+                </span>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUseSample();
+                  }}
+                  className="text-xs text-[#C67D0A] dark:text-[#E0A844] hover:underline font-semibold"
+                >
+                  Or test with sample note &rarr;
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-[3px] bg-[#121316] border border-[#2C3038]">
-              <div>
-                <span className="text-[10px] font-mono text-[#EA580C] uppercase block">Loaded Document</span>
-                <span className="text-xs font-semibold text-[#F5F5F4]">{fileName}</span>
+            <div className="flex items-center justify-between p-3.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md border border-[#E8E1D3] dark:border-[#234436] overflow-hidden bg-white dark:bg-[#162C23] flex items-center justify-center">
+                  <img src={selectedImage} alt="Uploaded note preview" className="w-full h-full object-cover" />
+                </div>
+                <div className="truncate">
+                  <span className="text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] block truncate">
+                    {fileName}
+                  </span>
+                  <span className="text-[10px] text-[#687D72] dark:text-[#6E8578] block">
+                    Ready for OCR processing
+                  </span>
+                </div>
               </div>
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded-[2px] bg-[#1F2228] border border-[#2C3038] text-[11px] text-[#A8A29E] hover:text-[#F5F5F4]"
+                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#162C23] border border-[#E8E1D3] dark:border-[#234436] text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE]"
                 >
-                  Change File
+                  Replace
                 </button>
                 <button
                   onClick={() => {
                     setSelectedImage(null);
                     setAnalysisText('');
                   }}
-                  className="px-2.5 py-1 rounded-[2px] bg-[#1F2228] border border-[#2C3038] text-[11px] text-red-400 hover:bg-[#450A0A]"
+                  className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs font-semibold text-red-700 dark:text-red-300"
                 >
                   Clear
                 </button>
               </div>
             </div>
 
-            {/* 4 Actions */}
+            {/* 4 Processing Goals */}
             <div>
-              <span className="block text-[11px] font-mono text-[#A8A29E] mb-2">Select Processing Goal:</span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button
-                  onClick={() => handleRunAnalysis('transcribe')}
-                  disabled={isAnalyzing}
-                  className={`p-3 rounded-[3px] border text-left transition-colors ${
-                    activeAction === 'transcribe'
-                      ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                      : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
-                  }`}
-                >
-                  <span className="font-mono text-[10px] text-[#EA580C] block">01</span>
-                  <span className="text-xs font-semibold block mt-0.5">Transcribe</span>
-                  <span className="text-[10px] text-[#78716C] block">OCR &amp; LaTeX</span>
-                </button>
-
-                <button
-                  onClick={() => handleRunAnalysis('summary')}
-                  disabled={isAnalyzing}
-                  className={`p-3 rounded-[3px] border text-left transition-colors ${
-                    activeAction === 'summary'
-                      ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                      : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
-                  }`}
-                >
-                  <span className="font-mono text-[10px] text-[#EA580C] block">02</span>
-                  <span className="text-xs font-semibold block mt-0.5">Summary</span>
-                  <span className="text-[10px] text-[#78716C] block">Key Formulas</span>
-                </button>
-
-                <button
-                  onClick={() => handleRunAnalysis('explain')}
-                  disabled={isAnalyzing}
-                  className={`p-3 rounded-[3px] border text-left transition-colors ${
-                    activeAction === 'explain'
-                      ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                      : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
-                  }`}
-                >
-                  <span className="font-mono text-[10px] text-[#EA580C] block">03</span>
-                  <span className="text-xs font-semibold block mt-0.5">Explain</span>
-                  <span className="text-[10px] text-[#78716C] block">First Principles</span>
-                </button>
-
-                <button
-                  onClick={() => handleRunAnalysis('solve_assignment')}
-                  disabled={isAnalyzing}
-                  className={`p-3 rounded-[3px] border text-left transition-colors ${
-                    activeAction === 'solve_assignment'
-                      ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                      : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
-                  }`}
-                >
-                  <span className="font-mono text-[10px] text-[#EA580C] block">04</span>
-                  <span className="text-xs font-semibold block mt-0.5">Solve Problems</span>
-                  <span className="text-[10px] text-[#78716C] block">Full Working</span>
-                </button>
+              <span className="block text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] mb-2">
+                Select Processing Goal:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  { id: 'transcribe', label: 'Transcribe', sub: 'OCR & LaTeX formulas' },
+                  { id: 'summary', label: 'Summary', sub: 'Key definitions & units' },
+                  { id: 'explain', label: 'Explain', sub: 'Teach first principles' },
+                  { id: 'solve_assignment', label: 'Solve Problems', sub: 'Step-by-step calculations' }
+                ].map((act) => (
+                  <button
+                    key={act.id}
+                    onClick={() => handleRunAnalysis(act.id as NoteAnalysisMode)}
+                    disabled={isAnalyzing}
+                    className={`p-3.5 rounded-xl border text-left transition-all ${
+                      activeAction === act.id
+                        ? 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] dark:border-[#2D6A4F] text-white shadow-xs'
+                        : 'bg-[#FAF6EE] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22] dark:hover:text-[#F6F3EE]'
+                    }`}
+                  >
+                    <span className="font-serif text-sm font-bold block">
+                      {act.label}
+                    </span>
+                    <span className={`text-[10px] block mt-0.5 ${
+                      activeAction === act.id ? 'text-white/80' : 'text-[#687D72] dark:text-[#6E8578]'
+                    }`}>
+                      {act.sub}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="p-3 rounded-[3px] bg-[#450A0A] border border-[#DC2626]/50 text-xs text-[#FCA5A5] flex items-center gap-2">
+          <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -282,9 +289,9 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
       {/* Analysis Output */}
       {(isAnalyzing || analysisText) && (
-        <div className="p-5 sm:p-6 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-4">
-          <div className="flex items-center justify-between border-b border-[#2C3038] pb-3">
-            <span className="font-mono text-xs font-bold text-[#EA580C]">
+        <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E8E1D3] dark:border-[#234436] pb-3">
+            <span className="font-serif text-sm font-bold text-[#142E22] dark:text-[#F6F3EE]">
               {activeAction === 'solve_assignment' && 'Assignment Derivations & Calculations'}
               {activeAction === 'transcribe' && 'Clean Markdown & LaTeX Transcription'}
               {activeAction === 'summary' && 'Revision Summary'}
@@ -295,18 +302,18 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
               <button
                 onClick={handleCopy}
                 disabled={!analysisText}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#1F2228] border border-[#2C3038] text-xs font-mono text-[#F5F5F4]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE]"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
               </button>
 
               {analysisText && !isAnalyzing && (
                 <button
                   onClick={() => onLaunchCBTWithNotes(analysisText, fileName || 'Scanned Note Topic')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#1B4332] dark:bg-[#2D6A4F] hover:bg-[#143427] dark:hover:bg-[#40916C] text-white text-xs font-semibold shadow-xs"
                 >
-                  <CheckSquare className="w-3.5 h-3.5" />
+                  <CheckSquare className="w-3.5 h-3.5 text-[#DDA15E]" />
                   <span>Generate CBT From Note</span>
                 </button>
               )}
@@ -314,7 +321,13 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
           </div>
 
           {isAnalyzing && !analysisText ? (
-            <Skeleton lines={5} />
+            <div className="space-y-3 py-4">
+              <span className="text-xs font-mono text-[#C67D0A] dark:text-[#E0A844] flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#C67D0A] animate-ping" />
+                Reading handwriting and transcribing formulas...
+              </span>
+              <Skeleton lines={5} />
+            </div>
           ) : (
             <MarkdownView content={analysisText} />
           )}
@@ -323,15 +336,15 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
       {/* Saved Documents */}
       {savedNotes.length > 0 && (
-        <div className="p-5 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-3">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-[#78716C] block">
+        <div className="p-6 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm space-y-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#687D72] dark:text-[#6E8578] block">
             Archived Transcriptions ({savedNotes.length})
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {savedNotes.slice(0, 4).map((n) => (
               <div
                 key={n.id}
-                className="p-3 rounded-[3px] bg-[#121316] border border-[#2C3038] flex items-center justify-between gap-3"
+                className="p-3.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] flex items-center justify-between gap-3"
               >
                 <div
                   onClick={() => {
@@ -341,12 +354,16 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
                   }}
                   className="cursor-pointer truncate"
                 >
-                  <span className="text-[10px] font-mono text-[#EA580C] block uppercase">{n.mode}</span>
-                  <span className="text-xs font-semibold text-[#F5F5F4] truncate block">{n.title}</span>
+                  <span className="text-[10px] font-mono text-[#C67D0A] dark:text-[#E0A844] block font-semibold uppercase">
+                    {n.mode}
+                  </span>
+                  <span className="text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] truncate block">
+                    {n.title}
+                  </span>
                 </div>
                 <button
                   onClick={() => handleDelete(n.id)}
-                  className="text-[#78716C] hover:text-red-400 p-1"
+                  className="text-[#687D72] hover:text-red-500 p-1"
                   aria-label="Delete note"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

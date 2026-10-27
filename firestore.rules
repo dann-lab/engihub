@@ -63,7 +63,15 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
-      match /portfolio/{studyId} {
+      match /spaced_repetition/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /bookmarks/{bookmarkId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /chats/{chatId} {
         allow read, write: if isOwner(userId);
       }
     }
@@ -99,6 +107,14 @@ service cloud.firestore {
 
       // Only author or admin can delete
       allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
+    }
+
+    // 3. Contact & Support Messages
+    match /messages/{messageId} {
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

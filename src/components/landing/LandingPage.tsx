@@ -1,10 +1,14 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * EngiHub Campus Landing Page
+ * Aesthetic: Warm, lively Nigerian campus study space made by a student who cares.
+ * Palette: Warm cream background, deep forest green main, sunny yellow-gold accent.
  */
 
 import React from 'react';
-import { ArrowRight, BookOpen, CheckSquare, ScanText, Wrench } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckSquare, MessageSquare, Wrench } from 'lucide-react';
 import { MathRenderer } from '../MathRenderer';
 
 interface LandingPageProps {
@@ -13,31 +17,36 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   return (
-    <div className="min-h-screen bg-[#121316] text-[#F5F5F4] drafting-grid flex flex-col justify-between selection:bg-orange-500/30 selection:text-orange-200">
-      {/* Minimal Top Header */}
-      <header className="border-b border-[#2C3038] bg-[#121316]/90 backdrop-blur-xs px-4 sm:px-8 py-3.5">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#142E22] flex flex-col justify-between selection:bg-[#E0A844]/30 selection:text-[#142E22]">
+      {/* Campus Top Bar */}
+      <header className="border-b border-[#E8E1D3] bg-[#FDFBF7]/90 backdrop-blur-xs px-4 sm:px-8 py-3.5 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-baseline gap-2.5">
-            <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#F5F5F4]">
-              Engi<span className="text-[#EA580C]">Hub</span>
-            </span>
-            <span className="font-mono text-[10px] text-[#A8A29E] tracking-wider uppercase hidden sm:inline">
-              // Nigerian Engineering Workspace
-            </span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#1B4332] text-white flex items-center justify-center font-serif text-lg font-bold shadow-xs">
+              E
+            </div>
+            <div>
+              <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#142E22]">
+                Engi<span className="text-[#C67D0A]">Hub</span>
+              </span>
+              <span className="text-[10px] text-[#687D72] uppercase tracking-wider hidden sm:inline ml-2">
+                Campus Study Space
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => onOpenAuth('signin')}
-              className="text-xs font-mono text-[#A8A29E] hover:text-[#F5F5F4] transition-colors px-2 py-1"
+              className="text-xs font-semibold text-[#405449] hover:text-[#142E22] transition-colors px-3 py-1.5"
             >
               Sign In
             </button>
             <button
               onClick={() => onOpenAuth('signup')}
-              className="text-xs font-semibold px-3 py-1.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white transition-colors"
+              className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#1B4332] hover:bg-[#143427] text-white shadow-xs transition-colors tap-target-base"
             >
-              Get Started
+              Open Workspace
             </button>
           </div>
         </div>
@@ -45,103 +54,101 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
 
       {/* Main Landing Section */}
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-12 md:py-16 w-full space-y-16">
-        {/* Strong first line & short paragraph */}
-        <div className="max-w-2xl space-y-4">
-          <span className="font-mono text-xs uppercase tracking-wider text-[#EA580C] font-semibold">
-            Faculty of Engineering & Technology
-          </span>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight text-[#F5F5F4] leading-[1.15]">
+        {/* Hero Section */}
+        <div className="max-w-3xl space-y-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#F5EFE6] border border-[#E8E1D3] text-xs font-medium text-[#1B4332]">
+            <span className="w-2 h-2 rounded-full bg-[#C67D0A]" />
+            <span>Built for Nigerian University Engineering Students</span>
+          </div>
+
+          <h1 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight text-[#142E22] leading-[1.15]">
             Engineering taught from first principles, step by step.
           </h1>
-          <p className="text-sm sm:text-base text-[#A8A29E] leading-relaxed">
-            EngiHub is a workspace built for engineering students in Nigerian universities. Pick a course, work through unabbreviated math derivations, test your understanding on exam-standard CBT sets, and turn local infrastructure challenges into solved case studies.
+
+          <p className="text-base sm:text-lg text-[#405449] leading-relaxed">
+            A warm, focused study space built to help you master university coursework. Work through complete mathematical derivations, practice on exam-standard CBT sets with instant worked steps, ask questions when you get stuck, and document real community engineering projects.
           </p>
-          <div className="pt-2 flex flex-wrap items-center gap-3">
+
+          <div className="pt-2 flex flex-wrap items-center gap-4">
             <button
               onClick={() => onOpenAuth('signup')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-bold tracking-wide transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1B4332] hover:bg-[#143427] text-white text-sm font-semibold shadow-xs transition-colors tap-target-base"
             >
-              <span>Open Student Workspace</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Get Started Free</span>
+              <ArrowRight className="w-4 h-4 text-[#DDA15E]" />
             </button>
-            <span className="text-xs text-[#78716C] font-mono">
-              FUTA • UNILAG • ABU • UNN • UNILORIN
+
+            <span className="text-xs text-[#687D72]">
+              FUTA · UNILAG · ABU · UNN · UNILORIN · OAU
             </span>
           </div>
         </div>
 
-        {/* Real Product Preview: Worked Thermodynamics Board Notebook (No stock illustrations!) */}
-        <div className="border border-[#2C3038] rounded-[4px] bg-[#181A1F] overflow-hidden shadow-2xl">
-          <div className="border-b border-[#2C3038] px-4 py-2.5 bg-[#1F2228] flex items-center justify-between">
+        {/* Real Board Note Preview: Worked Thermodynamics Derivation */}
+        <div className="border border-[#E8E1D3] rounded-xl bg-white overflow-hidden paper-shadow-md">
+          <div className="border-b border-[#E8E1D3] px-5 py-3 bg-[#F5EFE6] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#EA580C]" />
-              <span className="font-mono text-xs font-semibold text-[#F5F5F4]">
-                MEE 301 // Thermodynamics // Air-Standard Diesel Cycle
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C67D0A]" />
+              <span className="text-xs font-semibold text-[#142E22]">
+                Thermodynamics · Air-Standard Diesel Cycle
               </span>
             </div>
-            <span className="font-mono text-[10px] text-[#A8A29E] uppercase">
-              Step 1 of 4 • Worked Derivation
+            <span className="text-[11px] font-mono text-[#687D72]">
+              Step 1 of 4 · Worked Derivation
             </span>
           </div>
 
-          <div className="p-5 sm:p-8 space-y-6">
+          <div className="p-6 sm:p-8 space-y-6">
             <div>
-              <span className="font-mono text-[11px] text-[#EA580C] uppercase font-semibold">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#C67D0A]">
                 Problem Statement & State Point 1
               </span>
-              <h3 className="font-serif text-lg sm:text-xl font-bold text-[#F5F5F4] mt-0.5">
+              <h3 className="font-serif text-lg sm:text-xl font-bold text-[#142E22] mt-1">
                 Calculate State Properties at End of Isentropic Compression
               </h3>
-              <p className="text-xs sm:text-sm text-[#A8A29E] mt-1 leading-relaxed">
-                Consider an air-standard Diesel cycle operating in an engine running at ambient temperature in Akure. Initial inlet conditions are P₁ = 100 kPa, T₁ = 300 K, with a compression ratio r = 16. Working fluid is dry air with ratio of specific heats γ = 1.4.
+              <p className="text-sm text-[#405449] mt-1 leading-relaxed">
+                Consider an air-standard Diesel cycle operating at ambient temperature in Akure. Initial inlet conditions are P₁ = 100 kPa, T₁ = 300 K, with a compression ratio r = 16. Working fluid is dry air with ratio of specific heats γ = 1.4.
               </p>
             </div>
 
-            {/* Formula Block set apart on its own lines */}
-            <div className="space-y-3 p-4 rounded-[3px] bg-[#121316] border border-[#2C3038]">
-              <span className="font-mono text-[10px] text-[#78716C] uppercase block">
+            {/* Formula Block */}
+            <div className="space-y-3 p-4 rounded-lg bg-[#FAF6EE] border border-[#E8E1D3]">
+              <span className="text-[11px] font-mono text-[#687D72] uppercase block">
                 Governing Isentropic Relation (Process 1 &rarr; 2):
               </span>
               <MathRenderer
                 math="T_2 = T_1 \cdot \left(\frac{V_1}{V_2}\right)^{\gamma - 1} = T_1 \cdot r^{\gamma - 1}"
                 block={true}
               />
-              <span className="font-mono text-[10px] text-[#78716C] uppercase block mt-2">
+              <span className="text-[11px] font-mono text-[#687D72] uppercase block mt-2">
                 Numerical Substitution:
               </span>
               <MathRenderer
                 math="T_2 = 300 \cdot (16)^{1.4 - 1} = 300 \cdot (16)^{0.4} = 300 \cdot 3.0314 = 909.43\text{ K}"
                 block={true}
               />
-              <span className="font-mono text-[10px] text-[#78716C] uppercase block mt-2">
-                Pressure Sizing at Top Dead Centre:
-              </span>
-              <MathRenderer
-                math="P_2 = P_1 \cdot r^{\gamma} = 100\text{ kPa} \cdot (16)^{1.4} = 100 \cdot 48.50 = 4,850\text{ kPa} \quad (4.85\text{ MPa})"
-                block={true}
-              />
             </div>
 
-            {/* Step Control as described in spec */}
-            <div className="pt-3 border-t border-[#2C3038] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            {/* Step Controls */}
+            <div className="pt-3 border-t border-[#E8E1D3] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <span className="font-mono text-xs text-[#F5F5F4] block font-semibold">
+                <span className="text-xs font-semibold text-[#142E22] block">
                   State point 2 verified.
                 </span>
-                <span className="text-xs text-[#78716C]">
+                <span className="text-xs text-[#687D72]">
                   Ready to calculate constant-pressure heat addition ($2 \to 3$)?
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onOpenAuth('signup')}
-                  className="px-3 py-1.5 rounded-[3px] bg-[#1F2228] border border-[#2C3038] text-xs font-mono text-[#A8A29E] hover:text-[#F5F5F4]"
+                  className="px-3.5 py-2 rounded-lg bg-[#F5EFE6] border border-[#E8E1D3] text-xs font-medium text-[#405449] hover:text-[#142E22]"
                 >
                   "I'm Lost" (Simpler Analogy)
                 </button>
                 <button
                   onClick={() => onOpenAuth('signup')}
-                  className="px-4 py-1.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg bg-[#1B4332] hover:bg-[#143427] text-white text-xs font-semibold"
                 >
                   Next Step &rarr;
                 </button>
@@ -150,51 +157,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
           </div>
         </div>
 
-        {/* Four functional pillars */}
+        {/* 4 Study Hall Pillars */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-[3px] bg-[#181A1F] border border-[#2C3038] space-y-2">
-            <BookOpen className="w-4 h-4 text-[#EA580C]" />
-            <h4 className="font-serif text-sm font-bold text-[#F5F5F4]">Baby-Step Tutor</h4>
-            <p className="text-xs text-[#A8A29E] leading-relaxed">
+          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
+            <BookOpen className="w-5 h-5 text-[#1B4332]" />
+            <h4 className="font-serif text-base font-bold text-[#142E22]">Step-by-Step Tutor</h4>
+            <p className="text-xs text-[#405449] leading-relaxed">
               Every term defined the first time it appears. Step-gated derivations with real-life analogies when you get stuck.
             </p>
           </div>
 
-          <div className="p-4 rounded-[3px] bg-[#181A1F] border border-[#2C3038] space-y-2">
-            <CheckSquare className="w-4 h-4 text-[#EA580C]" />
-            <h4 className="font-serif text-sm font-bold text-[#F5F5F4]">Immediate CBT</h4>
-            <p className="text-xs text-[#A8A29E] leading-relaxed">
-              Full worked steps right after each answer, not dumped at the end. Automated weak topics revision tracker.
+          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
+            <CheckSquare className="w-5 h-5 text-[#1B4332]" />
+            <h4 className="font-serif text-base font-bold text-[#142E22]">CBT Exam Center</h4>
+            <p className="text-xs text-[#405449] leading-relaxed">
+              Full worked steps right after each answer, not dumped at the end. Spaced repetition for questions you miss.
             </p>
           </div>
 
-          <div className="p-4 rounded-[3px] bg-[#181A1F] border border-[#2C3038] space-y-2">
-            <ScanText className="w-4 h-4 text-[#EA580C]" />
-            <h4 className="font-serif text-sm font-bold text-[#F5F5F4]">Note Scanner</h4>
-            <p className="text-xs text-[#A8A29E] leading-relaxed">
-              Transcribe handwritten notes into clean LaTeX and generate step-by-step solutions to textbook assignment problems.
+          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
+            <MessageSquare className="w-5 h-5 text-[#1B4332]" />
+            <h4 className="font-serif text-base font-bold text-[#142E22]">Ask Study Partner</h4>
+            <p className="text-xs text-[#405449] leading-relaxed">
+              Ask anything across engineering, mathematics, coding, and coursework. Choose quick answers or baby-step explanations.
             </p>
           </div>
 
-          <div className="p-4 rounded-[3px] bg-[#181A1F] border border-[#2C3038] space-y-2">
-            <Wrench className="w-4 h-4 text-[#EA580C]" />
-            <h4 className="font-serif text-sm font-bold text-[#F5F5F4]">Community Problem Lab</h4>
-            <p className="text-xs text-[#A8A29E] leading-relaxed">
-              Senior engineer designs for local blackouts, water filtration, and crop storage with Naira BEME pricing.
+          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
+            <Wrench className="w-5 h-5 text-[#1B4332]" />
+            <h4 className="font-serif text-base font-bold text-[#142E22]">Problem Lab</h4>
+            <p className="text-xs text-[#405449] leading-relaxed">
+              Practical designs for local challenges—solar installations, water filtration, and workshop fabrication with local parts.
             </p>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#2C3038] py-6 px-4 sm:px-8 text-center sm:text-left">
+      <footer className="border-t border-[#E8E1D3] py-6 px-4 sm:px-8 bg-white/50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
-          <p className="text-xs text-[#78716C] font-mono">
-            EngiHub // Engineering Education & Social Impact Initiative for Nigeria.
+          <p className="text-xs text-[#687D72]">
+            EngiHub · Engineering Workspace for Nigerian University Students. Built by Danni, <a href="https://dannistec.netlify.app" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#142E22]">Dannistec</a> · <a href="https://wa.me/2349040110170?text=Hello%20Danni" target="_blank" rel="noopener noreferrer" className="hover:text-[#25D366]">WA: 09040110170</a>
           </p>
-          <div className="flex items-center gap-4 text-xs font-mono text-[#A8A29E]">
-            <button onClick={() => onOpenAuth('signin')} className="hover:text-[#F5F5F4]">Sign In</button>
-            <button onClick={() => onOpenAuth('signup')} className="hover:text-[#F5F5F4]">Register</button>
+          <div className="flex items-center gap-4 text-xs font-semibold text-[#405449]">
+            <a href="mailto:dannistec3@gmail.com" className="hover:text-[#142E22]">dannistec3@gmail.com</a>
+            <button onClick={() => onOpenAuth('signin')} className="hover:text-[#142E22]">Sign In</button>
+            <button onClick={() => onOpenAuth('signup')} className="hover:text-[#142E22]">Register</button>
           </div>
         </div>
       </footer>
