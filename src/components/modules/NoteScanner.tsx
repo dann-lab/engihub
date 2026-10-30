@@ -23,6 +23,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface NoteScannerProps {
   onLaunchCBTWithNotes: (notesText: string, topicName: string) => void;
@@ -51,7 +52,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
     }
   }, [currentUser]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -60,22 +61,26 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       return;
     }
 
-    if (file.size > 4.5 * 1024 * 1024) {
-      setError('Image must be under 4.5MB to save data.');
-      return;
-    }
-
     setError('');
     setFileName(file.name);
-    setImageMime(file.type);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setSelectedImage(dataUrl);
+    try {
+      // Compress smartphone camera images (even 12MB+) down to fast ~250KB JPEG
+      const compressed = await compressImage(file, 1600, 0.82);
+      setSelectedImage(compressed.dataUrl);
+      setImageMime('image/jpeg');
       setAnalysisText('');
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Canvas compression fallback to FileReader:', err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        setSelectedImage(dataUrl);
+        setImageMime(file.type || 'image/jpeg');
+        setAnalysisText('');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleUseSample = () => {

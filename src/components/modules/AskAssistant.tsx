@@ -40,8 +40,11 @@ import {
   ExternalLink,
   ChevronDown,
   BookOpen,
-  AlertTriangle
+  AlertTriangle,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface AskAssistantProps {
   onLaunchCBTWithNotes?: (notesText: string, topicName: string) => void;
@@ -210,20 +213,30 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
+      try {
+        const compressed = await compressImage(file, 1600, 0.82);
         setAttachment({
           name: file.name,
           type: file.type,
-          imageBase64: event.target?.result as string
+          imageBase64: compressed.dataUrl
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Image compression failed, using standard reader:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setAttachment({
+            name: file.name,
+            type: file.type,
+            imageBase64: event.target?.result as string
+          });
+        };
+        reader.readAsDataURL(file);
+      }
     } else {
       // Text / PDF / Code files
       const reader = new FileReader();
@@ -647,19 +660,37 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Attachment chip if file selected */}
+          {/* Attachment preview if file selected */}
           {attachment && (
-            <div className="p-2.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 truncate">
-                <Paperclip className="w-3.5 h-3.5 text-[#C67D0A]" />
-                <span className="truncate font-medium">{attachment.name}</span>
-                <span className="text-[10px] text-[#687D72]">({attachment.type})</span>
+            <div className="p-2.5 rounded-xl bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] flex items-center justify-between text-xs gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {attachment.imageBase64 ? (
+                  <img
+                    src={attachment.imageBase64}
+                    alt={attachment.name}
+                    className="w-12 h-12 object-cover rounded-lg border border-[#E8E1D3] dark:border-[#234436] shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#1B4332]/10 dark:bg-[#E0A844]/15 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-[#1B4332] dark:text-[#E0A844]" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs text-[#142E22] dark:text-[#F6F3EE] truncate">
+                    {attachment.name}
+                  </p>
+                  <p className="text-[10px] text-[#687D72] dark:text-[#6E8578] truncate">
+                    {attachment.type} · Ready for question
+                  </p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setAttachment(null)}
-                className="text-red-500 hover:text-red-700 font-bold ml-2"
+                className="p-1 rounded-full text-[#687D72] hover:text-red-600 transition-colors"
+                title="Remove attachment"
               >
-                ×
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}

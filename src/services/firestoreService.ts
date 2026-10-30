@@ -583,12 +583,24 @@ class FirestoreService {
   async submitSupportMessage(msg: SupportMessage): Promise<void> {
     const path = `messages/${msg.id}`;
     try {
-      await setDoc(doc(db, 'messages', msg.id), {
-        ...msg,
-        name: DOMPurify.sanitize(msg.name),
-        message: DOMPurify.sanitize(msg.message),
-        category: msg.category
-      });
+      const payload: Record<string, any> = {
+        id: msg.id,
+        userId: msg.userId,
+        name: DOMPurify.sanitize(msg.name || 'Engineering Student'),
+        email: msg.email || '',
+        category: msg.category || 'Question',
+        message: DOMPurify.sanitize(msg.message || ''),
+        device: msg.device || 'Unknown',
+        browser: msg.browser || 'Unknown',
+        page: msg.page || 'Help Desk',
+        status: msg.status || 'New',
+        createdAt: msg.createdAt || Date.now(),
+        updatedAt: msg.updatedAt || Date.now(),
+      };
+      if (msg.screenshotUrl) {
+        payload.screenshotUrl = msg.screenshotUrl;
+      }
+      await setDoc(doc(db, 'messages', msg.id), payload);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
     }

@@ -15,10 +15,36 @@ import { GoogleGenAI } from '@google/genai';
 
 // ============================================================================
 // 1. GEMINI MODEL CONFIGURATION
-// Change the model here if needed.
-// 'gemini-3.8-flash' is the standard model with generous free-tier quotas.
+// 'gemini-3.1-flash-lite' is ultra-fast (<1s latency) and highly available.
 // ============================================================================
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+
+/**
+ * Resilient Gemini caller that handles model capacity spikes (503)
+ * by automatically falling back to alternative flash models.
+ */
+async function callGemini(ai, config) {
+  const models = [
+    GEMINI_MODEL,
+    'gemini-flash-lite-latest',
+    'gemini-3.8-flash',
+  ];
+  const uniqueModels = [...new Set(models)];
+  let lastErr = null;
+
+  for (const model of uniqueModels) {
+    try {
+      return await ai.models.generateContent({
+        ...config,
+        model,
+      });
+    } catch (err) {
+      console.warn(`Model ${model} request failed, attempting fallback:`, err?.message || err);
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
 
 // ============================================================================
 // 2. SYSTEM PROMPTS (SERVER-SIDE ONLY)
@@ -328,6 +354,11 @@ export async function handler(event, context) {
         studentQuestion = '',
         userMessage = '',
         conversationHistory = [],
+        image,
+        imageBase64,
+        attachment,
+        mimeType,
+        imageMimeType,
       } = body;
 
       const systemInstruction = isLostAnalogy ? SYSTEM_PROMPTS.tutorLost : SYSTEM_PROMPTS.tutor;
@@ -364,12 +395,26 @@ export async function handler(event, context) {
         userPrompt += wrapUntrustedData(String(q), 'STUDENT SPECIFIC QUESTION');
       }
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: userPrompt,
+      const parts = [];
+      const rawImg = image || imageBase64 || attachment?.imageBase64;
+      if (rawImg) {
+        const cleanBase64 = String(rawImg).replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+        parts.push({
+          inlineData: {
+            mimeType: mimeType || imageMimeType || attachment?.mimeType || 'image/jpeg',
+            data: cleanBase64,
+          },
+        });
+        userPrompt += `\n[NOTE: An image/diagram is attached above. Accurately inspect any formulas, circuit diagrams, problem sketches, or handwritten questions in this image and incorporate them directly into your step-by-step derivation and calculations.]\n`;
+      }
+
+      parts.push({ text: userPrompt });
+
+      const response = await callGemini(ai, {
+        contents: [{ role: 'user', parts }],
         config: {
           systemInstruction,
-          temperature: 0.6,
+          temperature: 0.5,
         },
       });
 
@@ -400,8 +445,7 @@ Original Topic: ${topic}
 ${explanation ? `Original Explanation: ${explanation}` : ''}
 Explain why the correct answer works in simple, memorable everyday terms. Keep it under 150 words.`;
 
-        const simplerRes = await ai.models.generateContent({
-          model: GEMINI_MODEL,
+        const simplerRes = await callGemini(ai, {
           contents: simplerPrompt,
           config: {
             temperature: 0.5,
@@ -478,8 +522,7 @@ Return ONLY a valid JSON object matching this schema without markdown code block
 
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          const response = await ai.models.generateContent({
-            model: GEMINI_MODEL,
+          const response = await callGemini(ai, {
             contents: attempt === 1 ? prompt : `Your previous output had invalid JSON syntax. Here was the raw text:\n${rawText.slice(0, 1000)}\n\nPlease reformat and return ONLY valid, parseable JSON matching the schema with { "questions": [...] }.`,
             config: {
               systemInstruction: SYSTEM_PROMPTS.cbt,
@@ -541,6 +584,7 @@ Return ONLY a valid JSON object matching this schema without markdown code block
         image,
         imageBase64,
         mimeType = 'image/jpeg',
+        imageMimeType,
         action = 'solve_assignment',
         notesContext = '',
         userMessage = '',
@@ -556,6 +600,7 @@ Return ONLY a valid JSON object matching this schema without markdown code block
       }
 
       const cleanBase64 = String(rawBase64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      const actualMime = imageMimeType || mimeType || 'image/jpeg';
 
       let actionInstruction = '';
       if (action === 'solve_assignment') {
@@ -575,15 +620,14 @@ Return ONLY a valid JSON object matching this schema without markdown code block
         textPrompt += wrapUntrustedData(String(extraContext), 'ADDITIONAL STUDENT CONTEXT');
       }
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+      const response = await callGemini(ai, {
         contents: [
           {
             role: 'user',
             parts: [
               {
                 inlineData: {
-                  mimeType: mimeType || 'image/jpeg',
+                  mimeType: actualMime,
                   data: cleanBase64,
                 },
               },
@@ -595,7 +639,7 @@ Return ONLY a valid JSON object matching this schema without markdown code block
         ],
         config: {
           systemInstruction: SYSTEM_PROMPTS.scanner,
-          temperature: 0.4,
+          temperature: 0.3,
         },
       });
 
@@ -696,8 +740,7 @@ Generate a comprehensive engineering solution breakdown formatted as JSON:
 }
 `;
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+      const response = await callGemini(ai, {
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_PROMPTS.problemLab,
@@ -762,8 +805,7 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
 }
 `;
 
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+      const response = await callGemini(ai, {
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_PROMPTS.portfolio,
@@ -850,8 +892,7 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
       });
 
       // Call Gemini with Google Search grounding enabled
-      const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+      const response = await callGemini(ai, {
         contents,
         config: {
           systemInstruction: SYSTEM_PROMPTS.ask,

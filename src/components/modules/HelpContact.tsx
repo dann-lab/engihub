@@ -35,6 +35,7 @@ import {
   Mail
 } from 'lucide-react';
 import { Skeleton } from '../common/Skeleton';
+import { compressImage } from '../../utils/imageCompressor';
 
 const FAQ_ITEMS = [
   {
@@ -107,7 +108,7 @@ export const HelpContact: React.FC = () => {
     return { browser, device, page: window.location.pathname || 'Help Desk' };
   };
 
-  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -116,17 +117,14 @@ export const HelpContact: React.FC = () => {
       return;
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      setErrorMessage('Screenshot must be under 3MB.');
-      return;
+    try {
+      setScreenshotName(file.name);
+      const compressed = await compressImage(file, 1000, 0.75);
+      setScreenshotData(compressed.dataUrl);
+      setErrorMessage('');
+    } catch {
+      setErrorMessage('Could not process screenshot image.');
     }
-
-    setScreenshotName(file.name);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setScreenshotData(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   // Submit support message with 5 msg/hour spam rate limit
@@ -149,8 +147,8 @@ export const HelpContact: React.FC = () => {
     const newMsg: SupportMessage = {
       id: `msg_${Date.now()}`,
       userId: currentUser.uid,
-      name: userProfile?.displayName || 'Engineering Student',
-      email: currentUser.email || '',
+      name: userProfile?.displayName || currentUser.displayName || 'Engineering Student',
+      email: currentUser.email || userProfile?.email || 'student@engihub.app',
       category,
       message: message.trim(),
       screenshotUrl: screenshotData || undefined,
