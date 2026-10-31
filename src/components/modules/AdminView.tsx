@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { firestoreService } from '../../services/firestoreService';
-import { apiRequest } from '../../services/apiClient';
+import { apiRequest, callNetlifyAI } from '../../services/apiClient';
 import { SupportMessage, MessageStatus, MessageCategory, CommunityProblemSolution } from '../../types';
 import {
   Shield,
@@ -34,7 +34,8 @@ import {
   Check,
   ShieldAlert,
   Trash2,
-  BarChart3
+  BarChart3,
+  Plus
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
@@ -68,10 +69,11 @@ export const AdminView: React.FC = () => {
     serverUptimeSeconds: number;
   } | null>(null);
   const [loadingTelemetry, setLoadingTelemetry] = useState(false);
+  const [creatingSample, setCreatingSample] = useState(false);
 
   const [generalError, setGeneralError] = useState('');
 
-  // 1. Fetch support messages
+  // 1. Fetch support messages manually
   const loadMessages = async () => {
     setLoadingMessages(true);
     setGeneralError('');
@@ -103,7 +105,8 @@ export const AdminView: React.FC = () => {
   const loadTelemetry = async () => {
     setLoadingTelemetry(true);
     try {
-      const stats = await apiRequest<any>('/api/admin/stats').catch(() => null);
+      const stats = await callNetlifyAI<any>({ module: 'admin_stats' })
+        .catch(() => apiRequest<any>('/api/admin/stats').catch(() => null));
       if (stats) setServerStats(stats);
     } catch (e: any) {
       console.warn('Failed loading telemetry:', e);
@@ -112,10 +115,48 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  // 4. Create sample student inquiry to test workflow
+  const handleCreateSampleInquiry = async () => {
+    setCreatingSample(true);
+    try {
+      await firestoreService.seedSampleInquiry();
+      setReplyNotice('Sample student inquiry created successfully.');
+      setTimeout(() => setReplyNotice(null), 4000);
+      await loadMessages();
+    } catch (e: any) {
+      alert('Could not create sample inquiry: ' + (e.message || 'Check connection'));
+    } finally {
+      setCreatingSample(false);
+    }
+  };
+
+  // Real-time synchronization
   useEffect(() => {
-    loadMessages();
+    setLoadingMessages(true);
+    setGeneralError('');
+
+    // Subscribe to messages in real time
+    const unsubscribe = firestoreService.subscribeToAllMessages(
+      (loaded) => {
+        setMessages(loaded);
+        setLoadingMessages(false);
+        // If collection is empty on first load, seed an initial inquiry automatically
+        if (loaded.length === 0) {
+          firestoreService.seedSampleInquiry().catch(() => {});
+        }
+      },
+      (err) => {
+        console.warn('Real-time listener notice, using manual fetch:', err);
+        loadMessages();
+      }
+    );
+
     loadModeration();
     loadTelemetry();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Filtered support messages
@@ -238,6 +279,15 @@ export const AdminView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleCreateSampleInquiry}
+            disabled={creatingSample}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E8E1D3] dark:border-[#223A30] bg-[#FAF8F5] dark:bg-[#11221B] text-xs font-medium text-[#1B4332] dark:text-[#E0A844] hover:border-[#1B4332] transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{creatingSample ? 'Creating...' : 'New Test Inquiry'}</span>
+          </button>
+
           <button
             onClick={() => {
               loadMessages();
@@ -382,13 +432,23 @@ export const AdminView: React.FC = () => {
               Loading support messages...
             </div>
           ) : filteredMessages.length === 0 ? (
-            <div className="p-10 rounded-xl border border-[#E8E1D3] dark:border-[#223A30] bg-[#FDFBF7] dark:bg-[#11221B] text-center space-y-2">
-              <p className="font-serif text-sm font-semibold text-[#142E22] dark:text-[#F6F3EE]">
-                No messages match the current criteria
-              </p>
-              <p className="text-xs text-[#687D72] dark:text-[#AEC1B6]">
-                When students submit inquiries through Help & Contact, they will appear here.
-              </p>
+            <div className="p-10 rounded-xl border border-[#E8E1D3] dark:border-[#223A30] bg-[#FDFBF7] dark:bg-[#11221B] text-center space-y-4">
+              <div className="space-y-1">
+                <p className="font-serif text-sm font-semibold text-[#142E22] dark:text-[#F6F3EE]">
+                  No messages match the current criteria
+                </p>
+                <p className="text-xs text-[#687D72] dark:text-[#AEC1B6] max-w-md mx-auto">
+                  When students submit questions or issues through Help & Contact, they arrive here live. You can also generate a sample inquiry to test the workflow.
+                </p>
+              </div>
+              <button
+                onClick={handleCreateSampleInquiry}
+                disabled={creatingSample}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4332] text-white text-xs font-semibold hover:bg-[#143427] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{creatingSample ? 'Creating...' : 'Create Sample Student Inquiry'}</span>
+              </button>
             </div>
           ) : (
             <div className="space-y-3">

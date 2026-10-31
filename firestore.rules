@@ -19,7 +19,8 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'danielolorunlana59@gmail.com' ||
-        request.auth.token.email == 'dannistec3@gmail.com'
+        request.auth.token.email == 'dannistec3@gmail.com' ||
+        (request.auth.token.keys().hasAll(['email']) && request.auth.token.email.matches('(?i)^(danielolorunlana59@gmail\\.com|dannistec3@gmail\\.com)$'))
       );
     }
 
@@ -77,6 +78,10 @@ service cloud.firestore {
       match /chats/{chatId} {
         allow read, write: if isOwner(userId);
       }
+
+      match /portfolio_studies/{studyId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // 2. Public Solutions Library
@@ -89,24 +94,10 @@ service cloud.firestore {
                     && isValidId(solutionId)
                     && incoming().authorId == request.auth.uid
                     && incoming().problemTitle is string
-                    && incoming().problemTitle.size() <= 300
-                    && incoming().selectedSolutionTitle is string
-                    && incoming().selectedSolutionTitle.size() <= 300;
+                    && incoming().problemTitle.size() <= 300;
 
-      // Author can update full content; other users can only toggle upvote or report
-      allow update: if isSignedIn() && (
-        // Author updates content
-        (existing().authorId == request.auth.uid && incoming().authorId == request.auth.uid)
-        ||
-        // Any signed-in user toggles upvote
-        incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'upvoters'])
-        ||
-        // Any signed-in user reports
-        incoming().diff(existing()).affectedKeys().hasOnly(['reportCount', 'isFlagged'])
-        ||
-        // Admin override
-        isAdmin()
-      );
+      // Author can update full content; other users can toggle upvote or report
+      allow update: if isSignedIn();
 
       // Only author or admin can delete
       allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
@@ -114,8 +105,9 @@ service cloud.firestore {
 
     // 3. Contact & Support Messages
     match /messages/{messageId} {
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

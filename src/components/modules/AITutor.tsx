@@ -151,7 +151,7 @@ export const ALL_10_COURSES = [
 ];
 
 export const AITutor: React.FC = () => {
-  const { currentUser, userProfile, updateProfileData } = useAuth();
+  const { currentUser, userProfile, updateProfileData, recordDailyActivity } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState(ALL_10_COURSES[0].name);
   const [topicInput, setTopicInput] = useState(ALL_10_COURSES[0].topics[0]);
   const [customQuestion, setCustomQuestion] = useState('');
@@ -280,6 +280,7 @@ export const AITutor: React.FC = () => {
 
       setCurrentSession(updatedSession);
       await firestoreService.saveTutorSession(currentUser.uid, updatedSession);
+      recordDailyActivity(session.topic);
 
       // Refresh past sessions
       firestoreService.getTutorSessions(currentUser.uid).then(setPastSessions).catch(console.error);

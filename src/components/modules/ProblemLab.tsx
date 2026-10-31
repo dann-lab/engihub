@@ -58,16 +58,93 @@ const TEMPLATE_CHALLENGES = [
     field: 'civil' as EngineeringField
   },
   {
+    title: 'Solar-Powered Borehole Pumping & Overhead Tank Network',
+    location: 'Nsukka Community / Enugu State',
+    context: 'Irregular public municipal water supply leaves 5,000 community members dependent on tanker water at exorbitant cost.',
+    constraints: 'Submersible 2.2kW helical rotor pump, 15m dynamic head, MPPT drive, and overhead gravity distribution manifold.',
+    field: 'civil' as EngineeringField
+  },
+  {
+    title: 'Continuous Flow Biodigester for Abattoir Waste & Cooking Gas',
+    location: 'Bodija Market / Ibadan, Oyo State',
+    context: 'Unprocessed slaughterhouse blood and rumen slurry pollute waterways, while vendors burn expensive firewood producing toxic smoke.',
+    constraints: 'Fixed-dome masonry digester with slurry agitator, H2S iron-sponge filter, and low-pressure gas storage bladder.',
+    field: 'chemical' as EngineeringField
+  },
+  {
+    title: 'Automated Palm Oil Expeller with Local Pre-Heating Chamber',
+    location: 'Oredo / Benin City, Edo State',
+    context: 'Manual pounding of sterilized palm fruit yields only 12% extraction with severe physical drudgery and high residual oil in fiber.',
+    constraints: 'Worm screw press fabricated with mild steel shaft, hard-facing electrode overlay, and diesel/single-phase electric motor drive.',
+    field: 'mechanical' as EngineeringField
+  },
+  {
+    title: 'Pure Sine Wave Dual-Conversion Inverter with LiFePO4 BMS',
+    location: 'Computer Village / Ikeja, Lagos State',
+    context: 'Cheap square-wave inverters hum, overheat laptop chargers and fan motors, and kill lead-acid batteries within 8 months.',
+    constraints: 'SPWM microcontroller modulation, toroidal ferrite transformer, and active 16S battery management integration.',
+    field: 'electrical' as EngineeringField
+  },
+  {
+    title: 'GSM Telemetry Smart Water Meter with Solenoid Cut-Off',
+    location: 'Samaru / Zaria, Kaduna State',
+    context: 'Unmetered shared hostel taps cause massive water wastage, tank dry-runs, and burnt water pump coils.',
+    constraints: 'ESP32 / SIM800L module, pulse-output hall flow sensor, and bistable 12V latching solenoid valve.',
+    field: 'computer' as EngineeringField
+  },
+  {
     title: 'Passive Zeer-Pot Evaporative Cooling Chamber for Produce',
     location: 'Dawanau / Kano Municipal, Kano State',
     context: 'Post-harvest tomatoes and peppers experience 40% rot within 48 hours in hot Sahelian heat without cold storage.',
     constraints: 'Double-walled terracotta clay with wet river sand packing; zero electricity consumption.',
     field: 'agricultural' as EngineeringField
+  },
+  {
+    title: 'Local Sand Casting Foundry for Aluminum Pump Impellers',
+    location: 'Ajaokuta / Kogi State',
+    context: 'Imported irrigation pump impellers cost over ₦65,000 with months of shipping downtime when worn by silt erosion.',
+    constraints: 'Clay-bonded green sand molding, scrap automotive piston aluminum, and waste-engine-oil burner furnace.',
+    field: 'materials' as EngineeringField
+  },
+  {
+    title: 'Solar-Powered Walk-in Cold Room for Post-Harvest Tomato Aggregation',
+    location: 'Zaria / Kaduna State',
+    context: 'Tomato gluts cause 50% post-harvest spoilage at farm gates because ambient temperatures reach 38°C with zero grid electricity for cold chains.',
+    constraints: 'R290 hydrocarbon refrigerant split unit, polyurethane sandwich panels, and roof-mounted 5kW PV array with thermal phase-change ice bank.',
+    field: 'mechanical' as EngineeringField
+  },
+  {
+    title: 'Floating Riverine Hydrokinetic Micro-Turbine for Creek Fishing Camps',
+    location: 'Brass / Bayelsa State (Niger Delta)',
+    context: 'Isolated riverine fishing camps have zero grid connections and rely on noisy two-stroke petrol outboard fuel for night battery charging.',
+    constraints: 'Catamaran pontoon raft with submerged Savonius/Darrieus hybrid runner driving a permanent magnet automotive alternator at 1.8 m/s tidal flow.',
+    field: 'electrical' as EngineeringField
+  },
+  {
+    title: 'Biomass-Fired Rotary Drum Dryer for Maize & Cassava Chips',
+    location: 'Makurdi / Benue State (Middle Belt)',
+    context: 'Rainy-season harvest rains prevent open-air road drying, leading to toxic aflatoxin mold infestation in stored maize grains.',
+    constraints: 'Indirect biomass furnace with flue gas heat exchanger, cyclonic dust separator, and hand-cranked or solar-driven rotating drum.',
+    field: 'agricultural' as EngineeringField
+  },
+  {
+    title: 'Pyrolysis Retort for Waste Plastic Conversion to Diesel Fractions',
+    location: 'Trans-Amadi / Port Harcourt, Rivers State',
+    context: 'Piles of LDPE water sachets and HDPE containers clog urban canals and drains, causing severe street flooding and environmental hazards.',
+    constraints: 'Batch oxygen-free reactor sealed with high-temperature graphite gaskets, reflux fractionating condenser, and water bubbler flame arrester.',
+    field: 'chemical' as EngineeringField
+  },
+  {
+    title: 'Automated Solar Egg Incubator with PWM Humidity & Tilting Rack',
+    location: 'Obantoko / Abeokuta, Ogun State',
+    context: 'Frequent national grid drops trigger chilling of hatching poultry eggs, destroying batch hatchability and crippling local smallholders.',
+    constraints: 'PTC ceramic heating element, 12V DC servo motor rack rocker, DHT22 sensor, and dual-source 12V LiFePO4 battery backup.',
+    field: 'electrical' as EngineeringField
   }
 ];
 
 export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => {
-  const { currentUser, userProfile, updateProfileData, isAdmin } = useAuth();
+  const { currentUser, userProfile, updateProfileData, recordDailyActivity, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'solver' | 'library'>('solver');
 
   // Input states
@@ -119,6 +196,10 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
         lowDataMode: userProfile?.lowDataMode || false
       });
 
+      const selectedIndex = typeof data.selectedSolutionIndex === 'number' ? data.selectedSolutionIndex : 0;
+      const recSol = data.threeSolutions?.[selectedIndex] || data.threeSolutions?.[0];
+      const selectedTitle = data.selectedSolutionTitle || recSol?.title || 'Engineered Recommended Solution';
+
       const full: CommunityProblemSolution = {
         ...data,
         id: `sol_${Date.now()}`,
@@ -126,6 +207,10 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
         authorName: userProfile?.displayName || 'Engineering Student',
         authorUniversity: userProfile?.university || 'Nigerian University',
         field: selectedField,
+        problemTitle: problemTitle,
+        localContext: localContext,
+        stateOrRegion: stateOrRegion,
+        selectedSolutionTitle: selectedTitle,
         createdAt: Date.now(),
         upvotes: 0,
         upvoters: [],
@@ -137,6 +222,7 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
       setCurrentSolution(full);
       // Auto save to user's saved solutions or library
       await firestoreService.saveCommunitySolution(full);
+      recordDailyActivity(undefined, 'Applied Engineering Design');
       await loadLibrary();
     } catch (err: any) {
       console.error('Problem lab generation error:', err);

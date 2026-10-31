@@ -32,7 +32,7 @@ interface NoteScannerProps {
 const SAMPLE_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }) => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, recordDailyActivity } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageMime, setImageMime] = useState('image/jpeg');
   const [fileName, setFileName] = useState('');
@@ -40,6 +40,8 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisText, setAnalysisText] = useState('');
+  // In-memory cache of results per mode for the active document so switching views is instant
+  const [cachedModes, setCachedModes] = useState<Partial<Record<NoteAnalysisMode, string>>>({});
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [savedNotes, setSavedNotes] = useState<ScannedNoteRecord[]>([]);
@@ -63,13 +65,14 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
     setError('');
     setFileName(file.name);
+    setCachedModes({}); // Clear cache for new image
+    setAnalysisText('');
 
     try {
       // Compress smartphone camera images (even 12MB+) down to fast ~250KB JPEG
       const compressed = await compressImage(file, 1600, 0.82);
       setSelectedImage(compressed.dataUrl);
       setImageMime('image/jpeg');
-      setAnalysisText('');
     } catch (err) {
       console.warn('Canvas compression fallback to FileReader:', err);
       const reader = new FileReader();
@@ -77,7 +80,6 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
         const dataUrl = event.target?.result as string;
         setSelectedImage(dataUrl);
         setImageMime(file.type || 'image/jpeg');
-        setAnalysisText('');
       };
       reader.readAsDataURL(file);
     }
@@ -88,7 +90,22 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
     setFileName('sample_thermodynamics_notes.jpg');
     setImageMime('image/jpeg');
     setSelectedImage(`data:image/jpeg;base64,${SAMPLE_IMAGE_BASE64}`);
+    setCachedModes({});
     setAnalysisText('');
+  };
+
+  const handleSelectMode = async (mode: NoteAnalysisMode) => {
+    setActiveAction(mode);
+    setError('');
+
+    // If this mode was already generated for this note, load it immediately with zero network delay!
+    if (cachedModes[mode]) {
+      setAnalysisText(cachedModes[mode]!);
+      return;
+    }
+
+    // Otherwise trigger analysis for this mode
+    await handleRunAnalysis(mode);
   };
 
   const handleRunAnalysis = async (mode: NoteAnalysisMode) => {
@@ -110,7 +127,8 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
         action: mode,
         imageBase64: base64Data,
         imageMimeType: imageMime,
-        fileName: fileName || 'Uploaded Note'
+        fileName: fileName || 'Uploaded Note',
+        notesContext: cachedModes['transcribe'] || ''
       });
 
       const fullResult = data.text || data.reply || '';
@@ -119,6 +137,8 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       }
 
       setAnalysisText(fullResult);
+      // Cache the result for this mode
+      setCachedModes((prev) => ({ ...prev, [mode]: fullResult }));
 
       const record: ScannedNoteRecord = {
         id: `note_${Date.now()}`,
@@ -132,6 +152,9 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       await firestoreService.saveScannedNote(currentUser.uid, record);
       const updated = await firestoreService.getScannedNotes(currentUser.uid);
       setSavedNotes(updated);
+
+      // Record daily study activity in real time
+      recordDailyActivity().catch(console.error);
     } catch (err: any) {
       console.error('Note Scanner error:', err);
       setError(FALLBACK_AI_ERROR);
@@ -261,7 +284,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
                 ].map((act) => (
                   <button
                     key={act.id}
-                    onClick={() => handleRunAnalysis(act.id as NoteAnalysisMode)}
+                    onClick={() => handleSelectMode(act.id as NoteAnalysisMode)}
                     disabled={isAnalyzing}
                     className={`p-3.5 rounded-xl border text-left transition-all ${
                       activeAction === act.id
@@ -353,11 +376,13 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
               >
                 <div
                   onClick={() => {
-                    setAnalysisText(n.extractedText);
+                    const content = n.analysisResult || n.extractedText;
+                    setAnalysisText(content);
                     setActiveAction(n.mode);
                     setFileName(n.title);
+                    setCachedModes({ [n.mode]: content });
                   }}
-                  className="cursor-pointer truncate"
+                  className="cursor-pointer truncate flex-1"
                 >
                   <span className="text-[10px] font-mono text-[#C67D0A] dark:text-[#E0A844] block font-semibold uppercase">
                     {n.mode}

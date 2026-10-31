@@ -14,7 +14,8 @@ import {
   query,
   orderBy,
   where,
-  limit
+  limit,
+  onSnapshot
 } from 'firebase/firestore';
 import DOMPurify from 'dompurify';
 import { db, auth } from './firebase';
@@ -136,6 +137,21 @@ class FirestoreService {
     }
   }
 
+  subscribeToUserProfile(userId: string, onUpdate: (profile: UserProfileData) => void): () => void {
+    const userDocRef = doc(db, 'users', userId);
+    return onSnapshot(
+      userDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          onUpdate(snap.data() as UserProfileData);
+        }
+      },
+      (error) => {
+        console.warn('Realtime user profile subscription warning:', error?.message || error);
+      }
+    );
+  }
+
   async saveUserProfile(profile: UserProfileData): Promise<void> {
     const path = `users/${profile.id}`;
     try {
@@ -150,6 +166,62 @@ class FirestoreService {
       await setDoc(doc(db, 'users', profile.id), sanitized, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+
+  async recordStudyStreak(userId: string, topicMastered?: string, skillEarned?: string): Promise<UserProfileData | null> {
+    const path = `users/${userId}`;
+    try {
+      const snap = await getDoc(doc(db, 'users', userId));
+      if (!snap.exists()) return null;
+      const current = snap.data() as UserProfileData;
+
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const lastActive = current.lastActiveDate || '';
+
+      let newStreak = current.studyStreakDays || 1;
+
+      if (lastActive === todayStr) {
+        // Already logged activity today, maintain current streak
+      } else if (lastActive) {
+        const yesterday = new Date();
+        yesterday.setDate(now.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        if (lastActive === yesterdayStr) {
+          newStreak = (current.studyStreakDays || 0) + 1;
+        } else {
+          // Break in daily streak
+          newStreak = 1;
+        }
+      } else {
+        newStreak = 1;
+      }
+
+      const topics = current.topicsMastered || [];
+      const updatedTopics = topicMastered && !topics.includes(topicMastered)
+        ? [...topics, topicMastered]
+        : topics;
+
+      const skills = current.skillsEarned || [];
+      const updatedSkills = skillEarned && !skills.includes(skillEarned)
+        ? [...skills, skillEarned]
+        : skills;
+
+      const updated: Partial<UserProfileData> = {
+        studyStreakDays: newStreak,
+        lastActiveDate: todayStr,
+        topicsMastered: updatedTopics,
+        skillsEarned: updatedSkills,
+        updatedAt: Date.now()
+      };
+
+      await updateDoc(doc(db, 'users', userId), updated);
+      return { ...current, ...updated } as UserProfileData;
+    } catch (err) {
+      console.warn('Error recording study streak in Firestore:', err);
+      return null;
     }
   }
 
@@ -643,6 +715,55 @@ class FirestoreService {
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, path);
     }
+  }
+
+  subscribeToAllMessages(
+    onSuccess: (msgs: SupportMessage[]) => void,
+    onError?: (err: any) => void
+  ): () => void {
+    const path = 'messages';
+    try {
+      const unsubscribe = onSnapshot(
+        collection(db, 'messages'),
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => d.data() as SupportMessage);
+          list.sort((a, b) => b.createdAt - a.createdAt);
+          onSuccess(list);
+        },
+        (error) => {
+          console.warn('Realtime messages listener error:', error);
+          if (onError) {
+            onError(error);
+          }
+        }
+      );
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeToAllMessages init failed:', err);
+      if (onError) {
+        onError(err);
+      }
+      return () => {};
+    }
+  }
+
+  async seedSampleInquiry(): Promise<SupportMessage> {
+    const sampleMsg: SupportMessage = {
+      id: `msg_sample_${Date.now()}`,
+      userId: auth.currentUser?.uid || 'sample_student_1',
+      name: 'Chinedu Okafor',
+      email: 'chinedu.okafor@student.unilag.edu.ng',
+      category: 'Question',
+      message: 'Good day Faculty Admin, in Thermodynamics MEE 301, could you verify if the Diesel cycle cut-off ratio formula on the CBT practice evaluates rc = V3/V2 or heat input ratio directly? Thank you!',
+      device: 'Mobile Device (Android 14)',
+      browser: 'Chrome 122',
+      page: 'CBT Exam Prep Center',
+      status: 'New',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await this.submitSupportMessage(sampleMsg);
+    return sampleMsg;
   }
 }
 

@@ -71,7 +71,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
   onComplete,
   onNavigateToTutor
 }) => {
-  const { currentUser, userProfile, updateProfileData } = useAuth();
+  const { currentUser, userProfile, updateProfileData, recordDailyActivity } = useAuth();
 
   // Configuration State
   const [sourceType, setSourceType] = useState<CBTSource>(notesContext ? 'uploaded_note' : 'course_topic');
@@ -320,6 +320,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
       };
       setActiveQuiz(finished);
       await firestoreService.saveCBTQuiz(currentUser.uid, finished);
+      recordDailyActivity(finished.topic);
 
       // Trigger quiet celebratory confetti
       onComplete?.();

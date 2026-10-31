@@ -58,7 +58,7 @@ const ANSWER_STYLES: Array<{ id: AnswerStyle; label: string; desc: string }> = [
 ];
 
 export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes }) => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, recordDailyActivity } = useAuth();
 
   // Chat sessions state
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -324,6 +324,7 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
 
       setActiveSession(finalSession);
       await firestoreService.saveChat(currentUser.uid, finalSession);
+      recordDailyActivity();
 
       // Update in sessions list
       setSessions((prev) =>

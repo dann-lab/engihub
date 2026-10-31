@@ -29,7 +29,7 @@ interface PortfolioBuilderProps {
 }
 
 export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProblemSolution }) => {
-  const { currentUser, userProfile, updateProfileData } = useAuth();
+  const { currentUser, userProfile, updateProfileData, recordDailyActivity } = useAuth();
   const [studies, setStudies] = useState<PortfolioCaseStudy[]>([]);
   const [selectedStudy, setSelectedStudy] = useState<PortfolioCaseStudy | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -94,6 +94,7 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
         const nextSkills = Array.from(new Set([...userProfile.skillsEarned, ...newStudy.skillsDemonstrated]));
         await updateProfileData({ skillsEarned: nextSkills });
       }
+      recordDailyActivity(undefined, newStudy.skillsDemonstrated?.[0] || 'SIWES Technical Documentation');
     } catch (err: any) {
       console.error('Portfolio generation error:', err);
       setError(FALLBACK_AI_ERROR);
@@ -243,91 +244,116 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
           </div>
 
           {/* Sections */}
-          <div className="space-y-6 text-sm">
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
-                1.0 Executive Summary
-              </h3>
-              <div className="text-[#A8A29E] leading-relaxed">
-                <MarkdownView content={selectedStudy.executiveSummary} />
-              </div>
-            </div>
+          {(() => {
+            const anyStudy = selectedStudy as any;
+            const execSummary = selectedStudy.executiveSummary || anyStudy.abstract || '';
+            const probStatement = selectedStudy.problemStatement || '';
+            const techMethodology = selectedStudy.technicalMethodology || anyStudy.engineeringMethodology || '';
+            const mathValidation = selectedStudy.mathematicalValidation || 
+              (Array.isArray(anyStudy.equationsAndCalculations) 
+                ? anyStudy.equationsAndCalculations.map((eq: any) => `**${eq.name || 'Formula'}**\n$$${eq.latex || ''}$$\n${eq.description || ''}`).join('\n\n') 
+                : anyStudy.equationsAndCalculations || '');
+            const safety = selectedStudy.safetyAndEthics || anyStudy.safetyAndStandardsCompliance || '';
+            const impact = selectedStudy.resultsAndImpact || anyStudy.outcomesAndImpact || '';
+            const lessons = (selectedStudy.lessonsLearned && selectedStudy.lessonsLearned.length > 0)
+              ? selectedStudy.lessonsLearned
+              : anyStudy.lessons || [
+                  'Rigorous thermal dissipation sizing is essential in Nigerian high-ambient operating conditions.',
+                  'Procurability of standard replacement parts from local markets (Ladipo/Alaba/Panteka) reduces downtime from weeks to hours.',
+                  'Safety interlocks and earthing safeguards prevent electrocution and expensive component burnout.'
+                ];
+            const skills = (selectedStudy.skillsDemonstrated && selectedStudy.skillsDemonstrated.length > 0)
+              ? selectedStudy.skillsDemonstrated
+              : anyStudy.skills || ['Engineering Analysis', 'BEME Budgeting', 'System Sizing', 'Safety Compliance'];
 
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
-                2.0 Problem Statement & Local Context
-              </h3>
-              <div className="text-[#A8A29E] leading-relaxed">
-                <MarkdownView content={selectedStudy.problemStatement} />
-              </div>
-            </div>
+            return (
+              <div className="space-y-6 text-sm">
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
+                    1.0 Executive Summary
+                  </h3>
+                  <div className="text-[#A8A29E] leading-relaxed">
+                    <MarkdownView content={execSummary} />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
-                3.0 Technical Methodology & Specifications
-              </h3>
-              <div className="text-[#A8A29E] leading-relaxed">
-                <MarkdownView content={selectedStudy.technicalMethodology} />
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
+                    2.0 Problem Statement & Local Context
+                  </h3>
+                  <div className="text-[#A8A29E] leading-relaxed">
+                    <MarkdownView content={probStatement} />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
-                4.0 Mathematical Validation & Governing Relations
-              </h3>
-              <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038]">
-                <MarkdownView content={selectedStudy.mathematicalValidation} />
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
+                    3.0 Technical Methodology & Specifications
+                  </h3>
+                  <div className="text-[#A8A29E] leading-relaxed">
+                    <MarkdownView content={techMethodology} />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-red-400 uppercase tracking-wider">
-                5.0 Risk Analysis, Safety & Ethics
-              </h3>
-              <div className="text-[#A8A29E] leading-relaxed">
-                <MarkdownView content={selectedStudy.safetyAndEthics} />
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
+                    4.0 Mathematical Validation & Governing Relations
+                  </h3>
+                  <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038]">
+                    <MarkdownView content={mathValidation} />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
-                6.0 Results & Impact Evaluation
-              </h3>
-              <div className="text-[#A8A29E] leading-relaxed">
-                <MarkdownView content={selectedStudy.resultsAndImpact} />
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-red-400 uppercase tracking-wider">
+                    5.0 Risk Analysis, Safety & Ethics
+                  </h3>
+                  <div className="text-[#A8A29E] leading-relaxed">
+                    <MarkdownView content={safety} />
+                  </div>
+                </div>
 
-            {/* Skills & Lessons Learned */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#2C3038]">
-              <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038] space-y-2">
-                <h4 className="font-mono text-xs font-bold text-[#F5F5F4] uppercase">
-                  Key Lessons Learned
-                </h4>
-                <ul className="text-xs text-[#A8A29E] space-y-1.5 list-disc list-inside">
-                  {selectedStudy.lessonsLearned?.map((l, i) => (
-                    <li key={i}>{l}</li>
-                  ))}
-                </ul>
-              </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-mono text-xs font-bold text-[#EA580C] uppercase tracking-wider">
+                    6.0 Results & Impact Evaluation
+                  </h3>
+                  <div className="text-[#A8A29E] leading-relaxed">
+                    <MarkdownView content={impact} />
+                  </div>
+                </div>
 
-              <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038] space-y-2">
-                <h4 className="font-mono text-xs font-bold text-[#EA580C] uppercase">
-                  Verified Engineering Competencies
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedStudy.skillsDemonstrated?.map((s, i) => (
-                    <span
-                      key={i}
-                      className="text-[11px] font-mono px-2 py-0.5 rounded-[2px] bg-[#1F2228] border border-[#2C3038] text-[#F5F5F4]"
-                    >
-                      {s}
-                    </span>
-                  ))}
+                {/* Skills & Lessons Learned */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#2C3038]">
+                  <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038] space-y-2">
+                    <h4 className="font-mono text-xs font-bold text-[#F5F5F4] uppercase">
+                      Key Lessons Learned
+                    </h4>
+                    <ul className="text-xs text-[#A8A29E] space-y-1.5 list-disc list-inside">
+                      {lessons.map((l: string, i: number) => (
+                        <li key={i}>{l}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-4 rounded-[3px] bg-[#121316] border border-[#2C3038] space-y-2">
+                    <h4 className="font-mono text-xs font-bold text-[#EA580C] uppercase">
+                      Verified Engineering Competencies
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {skills.map((s: string, i: number) => (
+                        <span
+                          key={i}
+                          className="text-[11px] font-mono px-2 py-0.5 rounded-[2px] bg-[#1F2228] border border-[#2C3038] text-[#F5F5F4]"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           <div className="pt-6 border-t border-[#2C3038] flex justify-between items-center text-xs font-mono text-[#78716C] no-print">
             <span>Dossier ID: {selectedStudy.id}</span>

@@ -21,7 +21,7 @@ import { AdminView } from './components/modules/AdminView';
 import { Skeleton } from './components/common/Skeleton';
 import { QuietConfetti } from './utils/personality';
 import { CommunityProblemSolution, NavigationModule } from './types';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Shield } from 'lucide-react';
 
 function AppContent() {
   const { currentUser, userProfile, loading, isAdmin, updateProfileData } = useAuth();
@@ -182,9 +182,19 @@ function AppContent() {
           <HelpContact />
         )}
 
-        {/* Admin view for danielolorunlana59@gmail.com */}
-        {activeModule === 'admin' && isAdmin && (
-          <AdminView />
+        {/* Admin view for faculty administrators */}
+        {activeModule === 'admin' && (
+          isAdmin ? (
+            <AdminView />
+          ) : (
+            <div className="max-w-md mx-auto p-6 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-center space-y-3 my-8">
+              <Shield className="w-8 h-8 text-[#C67D0A] dark:text-[#E0A844] mx-auto" />
+              <h2 className="font-serif text-lg font-bold text-[#142E22] dark:text-[#F6F3EE]">Administrator Access Only</h2>
+              <p className="text-xs text-[#405449] dark:text-[#AEC1B6]">
+                This area is restricted to faculty administrators (<code className="font-mono text-xs">danielolorunlana59@gmail.com</code> and <code className="font-mono text-xs">dannistec3@gmail.com</code>). Currently signed in as: <code className="font-mono text-xs">{currentUser?.email || 'Student'}</code>.
+              </p>
+            </div>
+          )
         )}
       </main>
 

@@ -3,10 +3,20 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@google/genai"]
+
 # Allow Netlify Functions to be called without rewriting to index.html
 [[redirects]]
   from = "/.netlify/functions/*"
   to = "/.netlify/functions/:splat"
+  status = 200
+
+# Proxy /api requests to netlify function if called directly
+[[redirects]]
+  from = "/api/admin/stats"
+  to = "/.netlify/functions/ai"
   status = 200
 
 # Client-side SPA routing: redirect all page requests to index.html
@@ -14,3 +24,4 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
