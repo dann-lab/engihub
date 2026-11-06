@@ -18,9 +18,11 @@ import {
   ArrowRight,
   BookOpen,
   Calendar,
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 import { getTimeGreeting, FlameIcon } from '../../utils/personality';
+import { motion } from 'motion/react';
 
 interface ProgressDashboardProps {
   onNavigateToModule: (module: NavigationModule) => void;
@@ -82,23 +84,39 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
       {/* 4 Study Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Streak */}
-        <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm">
+        <motion.div
+          whileHover={{ y: -3, scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-[#C67D0A] dark:hover:border-[#E0A844] transition-colors relative overflow-hidden group"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#687D72] dark:text-[#6E8578]">
               Study Streak
             </span>
-            <FlameIcon className="w-4 h-4 text-[#C67D0A] dark:text-[#E0A844]" />
+            <motion.div
+              animate={{ scale: [1, 1.25, 1], rotate: [-4, 4, -4] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <FlameIcon className="w-4 h-4 text-[#C67D0A] dark:text-[#E0A844]" />
+            </motion.div>
           </div>
           <span className="font-mono text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE] mt-2 block">
             {userProfile?.studyStreakDays || 1} <span className="text-xs font-normal text-[#687D72] dark:text-[#6E8578]">days</span>
           </span>
-          <span className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5 block">
-            Active daily study
-          </span>
-        </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-[#405449] dark:text-[#AEC1B6]">
+              Live synced
+            </span>
+          </div>
+        </motion.div>
 
         {/* Topics Mastered */}
-        <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm">
+        <motion.div
+          whileHover={{ y: -3, scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-[#1B4332] dark:hover:border-[#52B788] transition-colors"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#687D72] dark:text-[#6E8578]">
               Mastered
@@ -111,10 +129,14 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
           <span className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5 block">
             Derivations mastered
           </span>
-        </div>
+        </motion.div>
 
         {/* CBT Accuracy */}
-        <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm">
+        <motion.div
+          whileHover={{ y: -3, scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-[#C67D0A] dark:hover:border-[#E0A844] transition-colors"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#687D72] dark:text-[#6E8578]">
               CBT Accuracy
@@ -127,10 +149,14 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
           <span className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5 block font-mono">
             {totalQuestions > 0 ? `${totalCorrect}/${totalQuestions} correct` : 'Baseline diagnostic'}
           </span>
-        </div>
+        </motion.div>
 
         {/* Weak Areas */}
-        <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm">
+        <motion.div
+          whileHover={{ y: -3, scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-red-400 transition-colors"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#687D72] dark:text-[#6E8578]">
               Needs Review
@@ -143,7 +169,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
           <span className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5 block">
             Questions flagged
           </span>
-        </div>
+        </motion.div>
       </div>
 
       {/* CBT History Section */}

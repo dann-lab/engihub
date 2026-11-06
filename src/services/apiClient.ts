@@ -40,14 +40,14 @@ export async function callNetlifyAI<T = any>(payload: Record<string, any>): Prom
         serverErr = await response.text().catch(() => '');
       }
       console.error('Netlify AI request failed:', response.status, serverErr || response.statusText);
-      throw new Error(FALLBACK_AI_ERROR);
+      throw new Error(serverErr || FALLBACK_AI_ERROR);
     }
 
     const data = await response.json();
     return data as T;
   } catch (err: any) {
     console.error('AI invocation error:', err);
-    throw new Error(FALLBACK_AI_ERROR);
+    throw new Error(err?.message || FALLBACK_AI_ERROR);
   }
 }
 

@@ -8,9 +8,10 @@
  */
 
 import React from 'react';
-import { ArrowRight, BookOpen, CheckSquare, MessageSquare, Wrench } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckSquare, MessageSquare, Wrench, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 import { MathRenderer } from '../MathRenderer';
 import { ILLUSTRATIONS } from '../../assets/illustrations';
+import { motion } from 'motion/react';
 
 interface LandingPageProps {
   onOpenAuth: (mode?: 'signin' | 'signup') => void;
@@ -18,11 +19,18 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#142E22] flex flex-col justify-between selection:bg-[#E0A844]/30 selection:text-[#142E22]">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#142E22] flex flex-col justify-between selection:bg-[#E0A844]/30 selection:text-[#142E22] overflow-x-hidden relative">
+      {/* Subtle animated ambient gradient glow in background */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-[#1B4332]/5 via-[#C67D0A]/5 to-transparent pointer-events-none blur-3xl -z-10" />
+
       {/* Campus Top Bar */}
       <header className="border-b border-[#E8E1D3] bg-[#FDFBF7]/90 backdrop-blur-xs px-4 sm:px-8 py-3.5 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <motion.div
+            initial={{ opacity: 0, x: -15 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2.5"
+          >
             <div className="w-8 h-8 rounded-lg bg-[#1B4332] text-white flex items-center justify-center font-serif text-lg font-bold shadow-xs">
               E
             </div>
@@ -34,7 +42,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 Campus Study Space
               </span>
             </div>
-          </div>
+          </motion.div>
 
           <div className="flex items-center gap-3">
             <button
@@ -43,52 +51,115 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             >
               Sign In
             </button>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => onOpenAuth('signup')}
-              className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#1B4332] hover:bg-[#143427] text-white shadow-xs transition-colors tap-target-base"
+              className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#1B4332] hover:bg-[#143427] text-white shadow-xs transition-colors tap-target-base relative overflow-hidden group"
             >
-              Open Workspace
-            </button>
+              <span className="relative z-10">Open Workspace</span>
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            </motion.button>
           </div>
         </div>
       </header>
 
       {/* Main Landing Section */}
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-12 md:py-16 w-full space-y-16">
-        {/* Hero Section with Warm Campus Study Illustration */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        {/* Hero Section with Floating Engineering Formula Badges */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative">
+          {/* Floating Formula Badge 1 (Thermodynamics) */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{
+              opacity: [0.7, 1, 0.7],
+              y: [0, -12, 0],
+              rotate: [-1, 2, -1]
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            className="hidden md:flex absolute -top-6 right-8 lg:right-1/3 items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E8E1D3] shadow-md shadow-[#1B4332]/5 text-[11px] font-mono text-[#1B4332] pointer-events-none z-10"
+          >
+            <Sparkles className="w-3 h-3 text-[#C67D0A]" />
+            <span>{"P_{hyd} = \\rho g Q H"}</span>
+          </motion.div>
+
+          {/* Floating Formula Badge 2 (Circuit Theory) */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{
+              opacity: [0.7, 1, 0.7],
+              y: [0, 10, 0],
+              rotate: [1, -2, 1]
+            }}
+            transition={{ duration: 4.2, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+            className="hidden md:flex absolute bottom-2 left-6 lg:left-1/3 items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E8E1D3] shadow-md shadow-[#1B4332]/5 text-[11px] font-mono text-[#C67D0A] pointer-events-none z-10"
+          >
+            <Zap className="w-3 h-3 text-[#1B4332]" />
+            <span>V = I \cdot R</span>
+          </motion.div>
+
           <div className="lg:col-span-7 space-y-5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#F5EFE6] border border-[#E8E1D3] text-xs font-medium text-[#1B4332]">
-              <span className="w-2 h-2 rounded-full bg-[#C67D0A]" />
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#F5EFE6] border border-[#E8E1D3] text-xs font-medium text-[#1B4332]"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#C67D0A] animate-ping" />
               <span>Built for Nigerian University Engineering Students</span>
-            </div>
+            </motion.div>
 
-            <h1 className="font-serif text-3xl sm:text-5xl font-bold tracking-tight text-[#142E22] leading-[1.15]">
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="font-serif text-3xl sm:text-5xl font-bold tracking-tight text-[#142E22] leading-[1.15]"
+            >
               Engineering taught from first principles, step by step.
-            </h1>
+            </motion.h1>
 
-            <p className="text-base sm:text-lg text-[#405449] leading-relaxed">
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.1 }}
+              className="text-base sm:text-lg text-[#405449] leading-relaxed"
+            >
               A warm, focused study space built to help you master university coursework. Work through complete mathematical derivations, practice on exam-standard CBT sets with instant worked steps, ask questions when you get stuck, and document real community engineering projects.
-            </p>
+            </motion.p>
 
-            <div className="pt-2 flex flex-wrap items-center gap-4">
-              <button
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="pt-2 flex flex-wrap items-center gap-4"
+            >
+              <motion.button
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onOpenAuth('signup')}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1B4332] hover:bg-[#143427] text-white text-sm font-semibold shadow-xs transition-colors tap-target-base"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#1B4332] hover:bg-[#143427] text-white text-sm font-semibold shadow-md shadow-[#1B4332]/25 transition-all tap-target-base relative overflow-hidden group"
               >
                 <span>Get Started Free</span>
-                <ArrowRight className="w-4 h-4 text-[#DDA15E]" />
-              </button>
+                <ArrowRight className="w-4 h-4 text-[#DDA15E] group-hover:translate-x-1 transition-transform" />
+              </motion.button>
 
-              <span className="text-xs text-[#687D72]">
+              <span className="text-xs text-[#687D72] font-mono">
                 FUTA · UNILAG · ABU · UNN · UNILORIN · OAU
               </span>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Hero Campus Illustration Frame */}
-          <div className="lg:col-span-5">
-            <div className="rounded-2xl overflow-hidden border border-[#E8E1D3] bg-white p-2 paper-shadow-md">
+          {/* Hero Campus Illustration Frame with Physics Hover */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-5"
+          >
+            <motion.div
+              whileHover={{ scale: 1.02, y: -4 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="rounded-2xl overflow-hidden border border-[#E8E1D3] bg-white p-2 paper-shadow-md hover:shadow-xl hover:shadow-[#1B4332]/10 transition-shadow"
+            >
               <img
                 src={ILLUSTRATIONS.heroStudents.src}
                 alt={ILLUSTRATIONS.heroStudents.alt}
@@ -100,8 +171,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 <span className="font-medium text-[#142E22]">Campus Study Hall</span>
                 <span className="text-[11px]">Peer derivation & collaborative review</span>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
 
         {/* Real Board Note Preview: Worked Thermodynamics Derivation */}
@@ -197,7 +268,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {/* Workshop card */}
-            <div className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between">
+            <motion.div
+              whileHover={{ y: -6, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-[#1B4332]/10 transition-shadow group"
+            >
               <div>
                 <img
                   src={ILLUSTRATIONS.workshop.src}
@@ -205,7 +280,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   width={ILLUSTRATIONS.workshop.width}
                   height={ILLUSTRATIONS.workshop.height}
                   loading="lazy"
-                  className="w-full h-44 object-cover"
+                  className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="p-4 space-y-1.5">
                   <span className="text-[10px] font-mono uppercase text-[#C67D0A] font-bold">
@@ -222,10 +297,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <div className="px-4 py-2.5 border-t border-[#E8E1D3] bg-[#FAF6EE] text-[11px] text-[#687D72]">
                 MEE 101/201 · Hands-On Production
               </div>
-            </div>
+            </motion.div>
 
             {/* Solar Roof card */}
-            <div className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between">
+            <motion.div
+              whileHover={{ y: -6, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-[#1B4332]/10 transition-shadow group"
+            >
               <div>
                 <img
                   src={ILLUSTRATIONS.solarRoof.src}
@@ -233,7 +312,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   width={ILLUSTRATIONS.solarRoof.width}
                   height={ILLUSTRATIONS.solarRoof.height}
                   loading="lazy"
-                  className="w-full h-44 object-cover"
+                  className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="p-4 space-y-1.5">
                   <span className="text-[10px] font-mono uppercase text-[#C67D0A] font-bold">
@@ -250,10 +329,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <div className="px-4 py-2.5 border-t border-[#E8E1D3] bg-[#FAF6EE] text-[11px] text-[#687D72]">
                 EEE 301 · Off-Grid Solar Sizing
               </div>
-            </div>
+            </motion.div>
 
             {/* Borehole card */}
-            <div className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between">
+            <motion.div
+              whileHover={{ y: -6, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="rounded-xl border border-[#E8E1D3] bg-white overflow-hidden paper-shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-[#1B4332]/10 transition-shadow group"
+            >
               <div>
                 <img
                   src={ILLUSTRATIONS.borehole.src}
@@ -261,7 +344,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   width={ILLUSTRATIONS.borehole.width}
                   height={ILLUSTRATIONS.borehole.height}
                   loading="lazy"
-                  className="w-full h-44 object-cover"
+                  className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="p-4 space-y-1.5">
                   <span className="text-[10px] font-mono uppercase text-[#C67D0A] font-bold">
@@ -278,43 +361,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               <div className="px-4 py-2.5 border-t border-[#E8E1D3] bg-[#FAF6EE] text-[11px] text-[#687D72]">
                 CEE 303 · Community Hydraulic Design
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 
         {/* 4 Study Hall Pillars */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
-            <BookOpen className="w-5 h-5 text-[#1B4332]" />
+          <motion.div
+            whileHover={{ y: -4, scale: 1.02 }}
+            className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2 hover:border-[#1B4332] hover:shadow-md transition-all"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#1B4332]/10 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-[#1B4332]" />
+            </div>
             <h4 className="font-serif text-base font-bold text-[#142E22]">Step-by-Step Tutor</h4>
             <p className="text-xs text-[#405449] leading-relaxed">
               Every term defined the first time it appears. Step-gated derivations with real-life analogies when you get stuck.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
-            <CheckSquare className="w-5 h-5 text-[#1B4332]" />
+          <motion.div
+            whileHover={{ y: -4, scale: 1.02 }}
+            className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2 hover:border-[#1B4332] hover:shadow-md transition-all"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#1B4332]/10 flex items-center justify-center">
+              <CheckSquare className="w-5 h-5 text-[#1B4332]" />
+            </div>
             <h4 className="font-serif text-base font-bold text-[#142E22]">CBT Exam Center</h4>
             <p className="text-xs text-[#405449] leading-relaxed">
               Full worked steps right after each answer, not dumped at the end. Spaced repetition for questions you miss.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
-            <MessageSquare className="w-5 h-5 text-[#1B4332]" />
+          <motion.div
+            whileHover={{ y: -4, scale: 1.02 }}
+            className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2 hover:border-[#1B4332] hover:shadow-md transition-all"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#1B4332]/10 flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-[#1B4332]" />
+            </div>
             <h4 className="font-serif text-base font-bold text-[#142E22]">Ask Study Partner</h4>
             <p className="text-xs text-[#405449] leading-relaxed">
               Ask anything across engineering, mathematics, coding, and coursework. Choose quick answers or baby-step explanations.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2">
-            <Wrench className="w-5 h-5 text-[#1B4332]" />
+          <motion.div
+            whileHover={{ y: -4, scale: 1.02 }}
+            className="p-5 rounded-xl bg-white border border-[#E8E1D3] paper-shadow-sm space-y-2 hover:border-[#1B4332] hover:shadow-md transition-all"
+          >
+            <div className="w-9 h-9 rounded-lg bg-[#1B4332]/10 flex items-center justify-center">
+              <Wrench className="w-5 h-5 text-[#1B4332]" />
+            </div>
             <h4 className="font-serif text-base font-bold text-[#142E22]">Problem Lab</h4>
             <p className="text-xs text-[#405449] leading-relaxed">
               Practical designs for local challenges—solar installations, water filtration, and workshop fabrication with local parts.
             </p>
-          </div>
+          </motion.div>
         </div>
       </main>
 

@@ -25,6 +25,7 @@ import {
   FileText
 } from 'lucide-react';
 import { getTimeGreeting, getRandomEncouragingLine, FlameIcon } from '../../utils/personality';
+import { motion } from 'motion/react';
 
 interface SidebarProps {
   currentTheme: 'light' | 'dark';
@@ -130,32 +131,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Study streak badge */}
-          <div
+          <motion.div
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
             title={`${userProfile?.studyStreakDays || 1} day study streak`}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all relative overflow-hidden ${
               isLight
-                ? 'bg-[#FDF4E5] border border-[#E8D4B0] text-[#A86604]'
-                : 'bg-[#1D2B20] border border-[#325C4B] text-[#E0A844]'
+                ? 'bg-[#FDF4E5] border border-[#E8D4B0] text-[#A86604] shadow-xs'
+                : 'bg-[#1D2B20] border border-[#325C4B] text-[#E0A844] shadow-xs'
             }`}
           >
-            <FlameIcon className={`w-3.5 h-3.5 ${isLight ? 'text-[#C67D0A]' : 'text-[#E0A844]'}`} />
+            <motion.div
+              animate={{ rotate: [-4, 4, -4], scale: [1, 1.15, 1] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            >
+              <FlameIcon className={`w-3.5 h-3.5 ${isLight ? 'text-[#C67D0A]' : 'text-[#E0A844]'}`} />
+            </motion.div>
             <span>{userProfile?.studyStreakDays || 1}d</span>
-          </div>
+          </motion.div>
         </div>
 
         {/* Personalized Student Greeting */}
-        <div className={`mt-4 p-3 rounded-xl border ${
-          isLight
-            ? 'bg-[#F5EFE6] border-[#E8E1D3]'
-            : 'bg-[#11221B] border-[#234436]'
-        }`}>
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className={`mt-4 p-3 rounded-xl border ${
+            isLight
+              ? 'bg-[#F5EFE6] border-[#E8E1D3]'
+              : 'bg-[#11221B] border-[#234436]'
+          }`}
+        >
           <p className="font-serif text-sm font-semibold leading-tight">
             {greeting}
           </p>
           <p className={`text-xs mt-1 leading-snug ${isLight ? 'text-[#405449]' : 'text-[#AEC1B6]'}`}>
             {encouragingLine}
           </p>
-        </div>
+        </motion.div>
       </div>
 
       {/* Main Navigation Items */}
@@ -171,31 +184,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const isActive = item.aliases.includes(activeModule);
 
           return (
-            <button
+            <motion.button
               key={item.id}
               onClick={() => onSelectModule(item.id)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all tap-target-base ${
+              whileHover={{ x: 4, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all tap-target-base relative ${
                 isActive
                   ? isLight
-                    ? 'bg-[#1B4332] text-white shadow-xs font-semibold'
-                    : 'bg-[#1D3C2C] text-[#F6F3EE] border border-[#325C4B] font-semibold'
+                    ? 'bg-[#1B4332] text-white shadow-md font-semibold'
+                    : 'bg-[#1D3C2C] text-[#F6F3EE] border border-[#325C4B] shadow-md font-semibold'
                   : isLight
                     ? 'text-[#405449] hover:bg-[#F5EFE6] hover:text-[#142E22]'
                     : 'text-[#AEC1B6] hover:bg-[#11221B] hover:text-[#F6F3EE]'
               }`}
             >
-              <Icon className={`w-4 h-4 shrink-0 ${
+              <Icon className={`w-4 h-4 shrink-0 transition-transform ${
                 isActive
-                  ? isLight ? 'text-[#DDA15E]' : 'text-[#E0A844]'
+                  ? isLight ? 'text-[#DDA15E] scale-110' : 'text-[#E0A844] scale-110'
                   : isLight ? 'text-[#687D72]' : 'text-[#6E8578]'
               }`} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm leading-tight flex items-center justify-between">
                   <span>{item.label}</span>
                   {isActive && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${
-                      isLight ? 'bg-[#DDA15E]' : 'bg-[#E0A844]'
-                    }`} />
+                    <motion.span
+                      layoutId="sidebarActiveDot"
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isLight ? 'bg-[#DDA15E]' : 'bg-[#E0A844]'
+                      }`}
+                    />
                   )}
                 </div>
                 <div className={`text-[11px] truncate mt-0.5 ${
@@ -206,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {item.description}
                 </div>
               </div>
-            </button>
+            </motion.button>
           );
         })}
 

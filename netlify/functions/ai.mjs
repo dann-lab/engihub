@@ -17,7 +17,7 @@ import { GoogleGenAI } from '@google/genai';
 // 1. GEMINI MODEL CONFIGURATION
 // 'gemini-3.1-flash-lite' is ultra-fast (<1s latency) and highly available.
 // ============================================================================
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 /**
  * Resilient Gemini caller that handles model capacity spikes (503)
@@ -26,8 +26,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 async function callGemini(ai, config) {
   const models = [
     GEMINI_MODEL,
-    'gemini-flash-lite-latest',
-    'gemini-3.8-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
   ];
   const uniqueModels = [...new Set(models)];
   let lastErr = null;
@@ -258,18 +258,30 @@ function cleanJsonString(str) {
 // ============================================================================
 // 5. MAIN NETLIFY HANDLER
 // ============================================================================
-export async function handler(event, context) {
+// 5. MAIN NETLIFY HANDLER (DUAL NETLIFY V1 & V2 COMPATIBLE)
+// ============================================================================
+export async function handler(reqOrEvent, context) {
+  // 1. Detect environment: Netlify v2 (Standard Fetch Request) vs v1 (AWS Lambda event)
+  const isNetlifyV2 = reqOrEvent instanceof Request || (typeof reqOrEvent?.json === 'function' && typeof reqOrEvent?.text === 'function');
+
   // Common CORS and security headers
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-requested-with',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'X-Content-Type-Options': 'nosniff',
   };
 
+  const httpMethod = isNetlifyV2
+    ? (reqOrEvent.method || 'GET').toUpperCase()
+    : (reqOrEvent.httpMethod || reqOrEvent.method || 'GET').toUpperCase();
+
   // Handle preflight OPTIONS request
-  if (event.httpMethod === 'OPTIONS') {
+  if (httpMethod === 'OPTIONS') {
+    if (isNetlifyV2 && typeof Response !== 'undefined') {
+      return new Response('', { status: 204, headers });
+    }
     return {
       statusCode: 204,
       headers,
@@ -278,15 +290,66 @@ export async function handler(event, context) {
   }
 
   // Enforce POST method
-  if (event.httpMethod !== 'POST') {
+  if (httpMethod !== 'POST') {
+    const errorBody = JSON.stringify({ error: 'Method not allowed' });
+    if (isNetlifyV2 && typeof Response !== 'undefined') {
+      return new Response(errorBody, { status: 405, headers });
+    }
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
+      body: errorBody,
     };
   }
 
-  // 1. Check GEMINI_API_KEY from environment with robust fallback aliases
+  // Parse headers into lowercase map
+  const rawHeaders = {};
+  if (isNetlifyV2 && reqOrEvent.headers) {
+    if (typeof reqOrEvent.headers.forEach === 'function') {
+      reqOrEvent.headers.forEach((val, key) => {
+        rawHeaders[key.toLowerCase()] = val;
+      });
+    } else {
+      for (const [k, v] of Object.entries(reqOrEvent.headers)) {
+        rawHeaders[k.toLowerCase()] = v;
+      }
+    }
+  } else if (reqOrEvent.headers) {
+    for (const [k, v] of Object.entries(reqOrEvent.headers)) {
+      rawHeaders[k.toLowerCase()] = v;
+    }
+  }
+
+  // Parse JSON request body
+  let body = {};
+  if (isNetlifyV2) {
+    try {
+      body = await reqOrEvent.json();
+    } catch {
+      try {
+        const text = await reqOrEvent.text();
+        body = JSON.parse(text || '{}');
+      } catch {
+        body = {};
+      }
+    }
+  } else {
+    try {
+      const rawBody = reqOrEvent.isBase64Encoded
+        ? Buffer.from(reqOrEvent.body || '', 'base64').toString('utf8')
+        : (reqOrEvent.body || '{}');
+      body = typeof rawBody === 'string' ? JSON.parse(rawBody) : (rawBody || {});
+    } catch (parseErr) {
+      console.error('Invalid JSON in request body:', parseErr);
+      const errResp = JSON.stringify({ error: 'Invalid JSON payload received.' });
+      if (isNetlifyV2 && typeof Response !== 'undefined') {
+        return new Response(errResp, { status: 400, headers });
+      }
+      return { statusCode: 400, headers, body: errResp };
+    }
+  }
+
+  // Check GEMINI_API_KEY from environment with robust fallback aliases
   const apiKey =
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
@@ -298,62 +361,35 @@ export async function handler(event, context) {
 
   if (!apiKey) {
     console.error('Netlify Function Error: No Gemini API key found in process.env (checked GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_GENAI_API_KEY, VITE_GEMINI_API_KEY, API_KEY, VITE_API_KEY, GEMINI_KEY)');
+    const errBody = JSON.stringify({
+      error: "GEMINI_API_KEY is not configured in Netlify Site Settings. Please add GEMINI_API_KEY under Netlify Site Configuration -> Environment Variables.",
+    });
+    if (isNetlifyV2 && typeof Response !== 'undefined') {
+      return new Response(errBody, { status: 500, headers });
+    }
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({
-        error: "The tutor didn't respond. Check your connection and try again.",
-      }),
+      body: errBody,
     };
   }
 
-  // 2. Request payload size check (max 10MB)
-  if (event.body && event.body.length > 10 * 1024 * 1024) {
-    return {
-      statusCode: 413,
-      headers,
-      body: JSON.stringify({
-        error: "Payload too large. Please upload an image under 8MB.",
-      }),
-    };
-  }
-
-  // 3. Parse JSON body (handling Netlify base64 encoded payloads)
-  let body;
-  try {
-    const rawBody = event.isBase64Encoded
-      ? Buffer.from(event.body || '', 'base64').toString('utf8')
-      : (event.body || '{}');
-    body = JSON.parse(rawBody);
-  } catch (parseErr) {
-    console.error('Invalid JSON in request body:', parseErr);
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: "The tutor didn't respond. Check your connection and try again.",
-      }),
-    };
-  }
-
-  // Optional Bearer token or client IP check for rate limiting
-  const token = parseBearerToken(event.headers);
-  const clientIp = (event.headers && (
-    event.headers['x-nf-client-connection-ip'] ||
-    event.headers['client-ip'] ||
-    event.headers['x-forwarded-for']?.split(',')[0]?.trim()
-  )) || '';
-
+  // Rate Limiting check
+  const token = parseBearerToken(rawHeaders);
+  const clientIp = rawHeaders['x-nf-client-connection-ip'] || rawHeaders['client-ip'] || rawHeaders['x-forwarded-for']?.split(',')[0]?.trim() || '';
   const clientIdentifier = token ? `token_${token.slice(0, 16)}` : (clientIp ? `ip_${clientIp}` : null);
 
-  // Enforce Rate Limit (30 req/min) per identified user/IP
   if (clientIdentifier && isRateLimited(clientIdentifier)) {
+    const rateLimitBody = JSON.stringify({
+      error: "Rate limit reached. Please wait a moment before sending another question.",
+    });
+    if (isNetlifyV2 && typeof Response !== 'undefined') {
+      return new Response(rateLimitBody, { status: 429, headers });
+    }
     return {
       statusCode: 429,
       headers,
-      body: JSON.stringify({
-        error: "Rate limit reached. Please wait a moment before sending another question.",
-      }),
+      body: rateLimitBody,
     };
   }
 
@@ -370,7 +406,8 @@ export async function handler(event, context) {
     },
   });
 
-  try {
+  const result = await (async () => {
+    try {
     // ------------------------------------------------------------------------
     // MODULE: TUTOR
     // ------------------------------------------------------------------------
@@ -703,71 +740,91 @@ Return ONLY a valid JSON object matching this schema without markdown code block
 Region/State: ${stateOrRegion}
 Engineering Field: ${field}
 Local Conditions: ${localContext}
-Constraints: ${constraints || 'Budget limited, relies on local markets'}
+Constraints: ${constraints || 'Budget limited, relies on local Nigerian markets and workshops'}
 ${lowDataMode ? '[LOW DATA MODE: Concise, direct calculations.]' : ''}
 
-Generate a comprehensive engineering solution breakdown formatted as JSON:
+Generate a comprehensive engineering solution breakdown formatted as strict JSON:
 {
   "problemTitle": "${problemTitle}",
   "location": "${stateOrRegion}",
+  "breakdown": "Comprehensive technical breakdown of the problem, failure mechanisms, and engineering requirements in Nigeria",
   "rootCauses": ["Root cause 1", "Root cause 2", "Root cause 3"],
-  "threeSolutions": [
+  "solutionOptions": [
     {
-      "title": "Solution 1 Name",
-      "description": "Engineering description",
+      "title": "Low-Cost Mechanical / Passive Option",
+      "type": "Mechanical / Passive",
+      "description": "Engineering description with local materials",
       "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"],
-      "estimatedCostNaira": 150000
+      "cons": ["Con 1", "Con 2"]
     },
     {
-      "title": "Solution 2 Name",
-      "description": "Engineering description",
+      "title": "Automated Hybrid Solar / Electric Option",
+      "type": "Hybrid Solar / Electric",
+      "description": "Recommended robust engineering implementation",
       "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"],
-      "estimatedCostNaira": 350000
+      "cons": ["Con 1", "Con 2"]
     },
     {
-      "title": "Solution 3 Name",
-      "description": "Engineering description",
+      "title": "Smart Telemetry IoT / Advanced Control Option",
+      "type": "Smart IoT & Telemetry",
+      "description": "Advanced microcontroller and remote sensor architecture",
       "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"],
-      "estimatedCostNaira": 600000
+      "cons": ["Con 1", "Con 2"]
     }
   ],
-  "selectedSolutionIndex": 0,
-  "bestSolutionDesign": "Comprehensive technical design of the recommended solution",
-  "engineeringEquations": [
+  "selectedSolutionTitle": "Automated Hybrid Solar / Electric Option",
+  "governingFormulas": "**Governing System Equations**\\n\\n$$P = \\\\rho g Q H$$\\n\\nWhere $P$ is hydraulic power (W), $\\\\rho$ is fluid density ($1000\\\\text{ kg/m}^3$), $g$ is gravity ($9.81\\\\text{ m/s}^2$), $Q$ is flow rate ($m^3/s$), and $H$ is total dynamic head (m).",
+  "sampleCalculations": "**Worked Sizing Calculation:**\\n\\nFor total dynamic head $H = 25\\\\text{ m}$ and flow requirement $Q = 0.0012\\\\text{ m}^3/s$ (72 L/min):\\n\\n$$P_{hyd} = 1000 \\\\times 9.81 \\\\times 0.0012 \\\\times 25 = 294.3\\\\text{ W}$$\\n\\nAccounting for pump wire-to-water efficiency $\\\\eta = 0.65$:\\n\\n$$P_{elec} = \\\\frac{294.3}{0.65} = 452.8\\\\text{ W}$$\\n\\nSelecting a standard 0.5 HP (375W continuous / 550W peak) DC solar pump with $2 \\\\times 350\\\\text{W}$ monocrystalline panels wired in series.",
+  "bemeEstimate": [
     {
-      "name": "Governing Equation Name",
-      "latex": "P = \\rho g Q H",
-      "variableDefinitions": "P: Power (W), \\rho: Fluid density (kg/m^3), g: gravity, Q: Flow rate, H: Head",
-      "sampleCalculation": "Worked sample sizing calculation with numbers"
-    }
-  ],
-  "materialsAndBEME": [
-    {
-      "item": "Material or equipment name",
-      "specification": "Technical specification",
+      "item": "Monocrystalline Solar PV Modules (350W Tier-1)",
       "quantity": "2 units",
-      "estimatedUnitCostNaira": 25000,
-      "estimatedTotalCostNaira": 50000,
-      "localSource": "Ladipo Market, Lagos / Local timber and metal shed"
+      "unitRateNaira": 75000,
+      "totalNaira": 150000,
+      "localSource": "Alaba International Market, Lagos"
+    },
+    {
+      "item": "Helical Submersible Solar Borehole Pump (24V DC, 550W)",
+      "quantity": "1 unit",
+      "unitRateNaira": 95000,
+      "totalNaira": 95000,
+      "localSource": "Ladipo / Central Market Plumbing Stores"
+    },
+    {
+      "item": "MPPT Pump Controller with Dry-Run Sensor",
+      "quantity": "1 unit",
+      "unitRateNaira": 45000,
+      "totalNaira": 45000,
+      "localSource": "Local Solar Equipment Distributor"
+    },
+    {
+      "item": "High-Pressure PN10 PPR/PVC Pipes & Brass Non-Return Check Valve",
+      "quantity": "1 lot",
+      "unitRateNaira": 35000,
+      "totalNaira": 35000,
+      "localSource": "Local Hardware & Building Materials Market"
     }
   ],
-  "totalEstimatedCostNaira": 285000,
-  "safetyWarning": "MANDATORY SAFETY WARNING with PPE, earthing, fusing, and operational safeguards",
-  "feasibilityScores": {
-    "costScore": 75,
-    "difficultyScore": 80,
-    "impactScore": 90,
-    "sustainabilityScore": 85
+  "totalEstimatedCostNaira": 325000,
+  "safetyAlerts": [
+    "Always isolate DC high-voltage solar disconnect breakers before touching pump motor terminals.",
+    "Install a dedicated copper earthing rod (depth >= 2.4m) with ground resistance < 5 Ohms to protect against lightning surges.",
+    "Ensure non-return check valve is installed right above pump discharge to prevent water-hammer damage to impeller and pipe joints."
+  ],
+  "feasibility": {
+    "costScore": 82,
+    "difficultyScore": 85,
+    "impactScore": 94,
+    "sustainability": 88,
+    "overallScore": 87
   },
-  "stepByStepBuildPlan": [
-    "Phase 1: Sourcing & verification",
-    "Phase 2: Fabrication & structural mounting",
-    "Phase 3: Electrical wiring & fusing",
-    "Phase 4: Calibration & safety tests",
-    "Phase 5: Commissioning & community training"
+  "buildPlanSteps": [
+    "Phase 1: Hydrological head and daily flow audit at community site.",
+    "Phase 2: Local procurement of pump, PV panels, and structural angle iron at regional market.",
+    "Phase 3: Structural mounting frame fabrication, anti-rust zinc-chromate primer, and orientation at 8° South.",
+    "Phase 4: Piping installation with safety check-valves and submersible drop-cable splicing.",
+    "Phase 5: MPPT controller electrical termination, earthing rod grounding, and dry-run float switch calibration.",
+    "Phase 6: Flow commissioning test, water quality check, and community caretaker maintenance training."
   ]
 }
 `;
@@ -782,12 +839,83 @@ Generate a comprehensive engineering solution breakdown formatted as JSON:
       });
 
       const cleaned = cleanJsonString(response.text || '{}');
-      let parsed;
+      let raw;
       try {
-        parsed = JSON.parse(cleaned);
+        raw = JSON.parse(cleaned);
       } catch {
-        parsed = { problemTitle, error: 'Could not parse response structure.' };
+        raw = { problemTitle, error: 'Could not parse response structure.' };
       }
+
+      // Resilient normalization matching CommunityProblemSolution
+      const solOpts = Array.isArray(raw.solutionOptions) && raw.solutionOptions.length > 0
+        ? raw.solutionOptions
+        : Array.isArray(raw.threeSolutions)
+          ? raw.threeSolutions.map(s => ({
+              title: s.title || 'Alternative Solution',
+              type: s.type || 'Engineering Option',
+              description: s.description || '',
+              pros: Array.isArray(s.pros) ? s.pros : ['Locally viable'],
+              cons: Array.isArray(s.cons) ? s.cons : ['Requires capital']
+            }))
+          : [
+              {
+                title: 'Primary Recommended System',
+                type: 'Direct Implementation',
+                description: raw.bestSolutionDesign || raw.breakdown || 'Comprehensive engineered design.',
+                pros: ['High reliability', 'Locally maintainable'],
+                cons: ['Initial procurement cost']
+              }
+            ];
+
+      const bemeItems = Array.isArray(raw.bemeEstimate) && raw.bemeEstimate.length > 0
+        ? raw.bemeEstimate
+        : Array.isArray(raw.materialsAndBEME)
+          ? raw.materialsAndBEME.map(m => ({
+              item: m.item || 'Material Item',
+              quantity: m.quantity || '1 lot',
+              unitRateNaira: Number(m.estimatedUnitCostNaira || m.unitRateNaira || 0),
+              totalNaira: Number(m.estimatedTotalCostNaira || m.totalNaira || 0),
+              localSource: m.localSource || 'Local Market'
+            }))
+          : [
+              {
+                item: 'Core Components & Structural Materials',
+                quantity: '1 lot',
+                unitRateNaira: Number(raw.totalEstimatedCostNaira || 150000),
+                totalNaira: Number(raw.totalEstimatedCostNaira || 150000),
+                localSource: 'Local Regional Market'
+              }
+            ];
+
+      const cScore = Number(raw.feasibility?.costScore ?? raw.feasibilityScores?.costScore ?? 80);
+      const dScore = Number(raw.feasibility?.difficultyScore ?? raw.feasibilityScores?.difficultyScore ?? 80);
+      const iScore = Number(raw.feasibility?.impactScore ?? raw.feasibilityScores?.impactScore ?? 88);
+      const sScore = Number(raw.feasibility?.sustainability ?? raw.feasibilityScores?.sustainabilityScore ?? 85);
+      const avgScore = Math.round((cScore + dScore + iScore + sScore) / 4);
+
+      const parsed = {
+        problemTitle: raw.problemTitle || problemTitle,
+        localContext: raw.localContext || localContext,
+        stateOrRegion: raw.stateOrRegion || raw.location || stateOrRegion,
+        breakdown: raw.breakdown || raw.bestSolutionDesign || 'Comprehensive engineering evaluation of failure modes and local design parameters.',
+        rootCauses: Array.isArray(raw.rootCauses) && raw.rootCauses.length > 0 ? raw.rootCauses : ['Inadequate component sizing for high-ambient heat', 'Lack of surge protection and earthing'],
+        solutionOptions: solOpts,
+        selectedSolutionTitle: raw.selectedSolutionTitle || solOpts[0]?.title || 'Primary Recommended System',
+        governingFormulas: raw.governingFormulas || (Array.isArray(raw.engineeringEquations) ? raw.engineeringEquations.map(eq => `**${eq.name}**\n$$${eq.latex}$$\n${eq.variableDefinitions}`).join('\n\n') : '$$P = \\frac{W}{t}$$'),
+        sampleCalculations: raw.sampleCalculations || (Array.isArray(raw.engineeringEquations) ? raw.engineeringEquations.map(eq => `**${eq.name} Sizing:**\n${eq.sampleCalculation || ''}`).join('\n\n') : 'Sizing calculations based on standard engineering factors of safety.'),
+        materialsList: Array.isArray(raw.materialsList) ? raw.materialsList : bemeItems.map(b => b.item),
+        bemeEstimate: bemeItems,
+        totalEstimatedCostNaira: Number(raw.totalEstimatedCostNaira) || bemeItems.reduce((acc, b) => acc + (Number(b.totalNaira) || 0), 0) || 250000,
+        safetyAlerts: Array.isArray(raw.safetyAlerts) && raw.safetyAlerts.length > 0 ? raw.safetyAlerts : [raw.safetyWarning || 'Wear safety goggles and insulated gloves during fabrication and electrical testing.'],
+        feasibility: {
+          costScore: cScore,
+          difficultyScore: dScore,
+          impactScore: iScore,
+          sustainability: sScore,
+          overallScore: Number(raw.feasibility?.overallScore) || avgScore
+        },
+        buildPlanSteps: Array.isArray(raw.buildPlanSteps) && raw.buildPlanSteps.length > 0 ? raw.buildPlanSteps : (Array.isArray(raw.stepByStepBuildPlan) ? raw.stepByStepBuildPlan : ['Phase 1: Design verification', 'Phase 2: Local parts procurement', 'Phase 3: Assembly & fabrication', 'Phase 4: Safety testing & deployment'])
+      };
 
       return {
         statusCode: 200,
@@ -1140,6 +1268,16 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
       }),
     };
   }
+})();
+
+  if (isNetlifyV2 && typeof Response !== 'undefined') {
+    return new Response(result.body, {
+      status: result.statusCode,
+      headers: result.headers || headers,
+    });
+  }
+
+  return result;
 }
 
 // Export default for environments supporting modern standard handler

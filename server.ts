@@ -211,12 +211,17 @@ app.all('/.netlify/functions/ai', async (req: Request, res: Response) => {
       headers: req.headers as Record<string, string>,
       body: req.method === 'POST' ? JSON.stringify(req.body) : '',
     };
-    const result = await netlifyAIHandler(event, {});
-    const headers = result.headers || {};
-    Object.entries(headers).forEach(([k, v]) => {
-      res.setHeader(k, v as string);
-    });
-    res.status(result.statusCode).send(result.body);
+    const result: any = await netlifyAIHandler(event, {});
+    if (result && typeof result.status === 'number' && typeof result.text === 'function') {
+      const text = await result.text();
+      res.status(result.status).send(text);
+    } else {
+      const headers = result?.headers || {};
+      Object.entries(headers).forEach(([k, v]) => {
+        res.setHeader(k, v as string);
+      });
+      res.status(result?.statusCode || 200).send(result?.body || '');
+    }
   } catch (err: any) {
     console.error('Local Netlify function invocation error:', err);
     res.status(500).json({ error: "The tutor didn't respond. Check your connection and try again." });

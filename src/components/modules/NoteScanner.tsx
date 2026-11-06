@@ -24,6 +24,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { compressImage } from '../../utils/imageCompressor';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NoteScannerProps {
   onLaunchCBTWithNotes: (notesText: string, topicName: string) => void;
@@ -238,35 +239,55 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md border border-[#E8E1D3] dark:border-[#234436] overflow-hidden bg-white dark:bg-[#162C23] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-lg border border-[#E8E1D3] dark:border-[#234436] overflow-hidden bg-white dark:bg-[#162C23] flex items-center justify-center relative shadow-inner">
                   <img src={selectedImage} alt="Uploaded note preview" className="w-full h-full object-cover" />
+                  {/* Optical Laser Scanner Beam Animation */}
+                  {isAnalyzing && (
+                    <motion.div
+                      animate={{ top: ['0%', '100%', '0%'] }}
+                      transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                      className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#C67D0A] dark:via-[#E0A844] to-transparent shadow-[0_0_8px_#C67D0A]"
+                    />
+                  )}
                 </div>
                 <div className="truncate">
                   <span className="text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE] block truncate">
                     {fileName}
                   </span>
-                  <span className="text-[10px] text-[#687D72] dark:text-[#6E8578] block">
-                    Ready for OCR processing
+                  <span className="text-[10px] text-[#687D72] dark:text-[#6E8578] flex items-center gap-1.5">
+                    {isAnalyzing ? (
+                      <span className="text-[#C67D0A] dark:text-[#E0A844] font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C67D0A] animate-ping" />
+                        Scanning document equations...
+                      </span>
+                    ) : (
+                      'Ready for OCR processing'
+                    )}
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => fileInputRef.current?.click()}
                   className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#162C23] border border-[#E8E1D3] dark:border-[#234436] text-xs font-semibold text-[#142E22] dark:text-[#F6F3EE]"
                 >
                   Replace
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setSelectedImage(null);
                     setAnalysisText('');
+                    setCachedModes({});
                   }}
                   className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs font-semibold text-red-700 dark:text-red-300"
                 >
                   Clear
-                </button>
+                </motion.button>
               </div>
             </div>
 
@@ -281,27 +302,39 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
                   { id: 'summary', label: 'Summary', sub: 'Key definitions & units' },
                   { id: 'explain', label: 'Explain', sub: 'Teach first principles' },
                   { id: 'solve_assignment', label: 'Solve Problems', sub: 'Step-by-step calculations' }
-                ].map((act) => (
-                  <button
-                    key={act.id}
-                    onClick={() => handleSelectMode(act.id as NoteAnalysisMode)}
-                    disabled={isAnalyzing}
-                    className={`p-3.5 rounded-xl border text-left transition-all ${
-                      activeAction === act.id
-                        ? 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] dark:border-[#2D6A4F] text-white shadow-xs'
-                        : 'bg-[#FAF6EE] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22] dark:hover:text-[#F6F3EE]'
-                    }`}
-                  >
-                    <span className="font-serif text-sm font-bold block">
-                      {act.label}
-                    </span>
-                    <span className={`text-[10px] block mt-0.5 ${
-                      activeAction === act.id ? 'text-white/80' : 'text-[#687D72] dark:text-[#6E8578]'
-                    }`}>
-                      {act.sub}
-                    </span>
-                  </button>
-                ))}
+                ].map((act) => {
+                  const isCached = Boolean(cachedModes[act.id as NoteAnalysisMode]);
+                  return (
+                    <motion.button
+                      key={act.id}
+                      onClick={() => handleSelectMode(act.id as NoteAnalysisMode)}
+                      disabled={isAnalyzing}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`p-3.5 rounded-xl border text-left transition-all relative ${
+                        activeAction === act.id
+                          ? 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] dark:border-[#2D6A4F] text-white shadow-md'
+                          : 'bg-[#FAF6EE] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22] dark:hover:text-[#F6F3EE]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-serif text-sm font-bold block">
+                          {act.label}
+                        </span>
+                        {isCached && activeAction !== act.id && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold">
+                            Cached
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] block mt-0.5 ${
+                        activeAction === act.id ? 'text-white/80' : 'text-[#687D72] dark:text-[#6E8578]'
+                      }`}>
+                        {act.sub}
+                      </span>
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
           </div>

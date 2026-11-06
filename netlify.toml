@@ -5,7 +5,6 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@google/genai"]
 
 # Allow Netlify Functions to be called without rewriting to index.html
 [[redirects]]

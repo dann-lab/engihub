@@ -21,15 +21,17 @@ import {
   Award,
   BookOpen,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface PortfolioBuilderProps {
   incomingProblemSolution?: CommunityProblemSolution | null;
 }
 
 export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProblemSolution }) => {
-  const { currentUser, userProfile, updateProfileData, recordDailyActivity } = useAuth();
+  const { currentUser, userProfile, updateProfileData } = useAuth();
   const [studies, setStudies] = useState<PortfolioCaseStudy[]>([]);
   const [selectedStudy, setSelectedStudy] = useState<PortfolioCaseStudy | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -94,7 +96,6 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
         const nextSkills = Array.from(new Set([...userProfile.skillsEarned, ...newStudy.skillsDemonstrated]));
         await updateProfileData({ skillsEarned: nextSkills });
       }
-      recordDailyActivity(undefined, newStudy.skillsDemonstrated?.[0] || 'SIWES Technical Documentation');
     } catch (err: any) {
       console.error('Portfolio generation error:', err);
       setError(FALLBACK_AI_ERROR);
@@ -134,13 +135,15 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
         </div>
 
         {selectedStudy && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold self-start sm:self-auto transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold self-start sm:self-auto transition-colors shadow-sm shadow-[#EA580C]/20"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Export / Print Case Study</span>
-          </button>
+          </motion.button>
         )}
       </div>
 
@@ -169,16 +172,19 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
               ))}
             </select>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 const chosen = availableSolutions.find((s) => s.id === chosenSolutionId);
                 if (chosen) handleGenerateStudy(chosen);
               }}
               disabled={isGenerating || !chosenSolutionId}
-              className="px-3.5 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide disabled:opacity-50 transition-colors"
+              className="px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide disabled:opacity-50 transition-colors shadow-md shadow-[#EA580C]/20 flex items-center gap-1.5"
             >
-              {isGenerating ? 'Compiling...' : 'Generate Case Study'}
-            </button>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{isGenerating ? 'Compiling Dossier...' : 'Generate Case Study'}</span>
+            </motion.button>
           </div>
         </div>
 
@@ -194,7 +200,8 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
       {studies.length > 1 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 no-print">
           {studies.map((s) => (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
               key={s.id}
               onClick={() => setSelectedStudy(s)}
               className={`px-3 py-1.5 rounded-[2px] text-xs font-mono border transition-colors shrink-0 ${
@@ -204,14 +211,19 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
               }`}
             >
               {s.title.slice(0, 30)}...
-            </button>
+            </motion.button>
           ))}
         </div>
       )}
 
       {/* Document View */}
       {selectedStudy ? (
-        <div className="p-6 sm:p-10 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-8 print-page">
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="p-6 sm:p-10 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-8 print-page"
+        >
           {/* Header */}
           <div className="border-b border-[#2C3038] pb-6 space-y-4">
             <div className="flex justify-between items-center text-xs font-mono text-[#78716C]">
@@ -365,7 +377,7 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
               <span>Delete Case Study</span>
             </button>
           </div>
-        </div>
+        </motion.div>
       ) : (
         <div className="p-8 text-center text-xs font-mono text-[#78716C] bg-[#181A1F] rounded-[4px] border border-[#2C3038]">
           No technical case studies compiled yet. Select a solved problem above to generate.

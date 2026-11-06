@@ -48,6 +48,7 @@ import {
   Clock,
   Award
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface CBTEngineProps {
   initialTopic?: string;
@@ -845,7 +846,13 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
            ACTIVE QUIZ QUESTION VIEW
            ==================================================================== */
         currentQ && (
-          <div className="space-y-5">
+          <motion.div
+            key={currentIdx}
+            initial={{ opacity: 0, x: 18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-5"
+          >
             {/* Progress Bar & Actions */}
             <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm flex items-center justify-between gap-3">
               <div>
@@ -903,17 +910,19 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
                     let optStyle = 'bg-[#FAF6EE] dark:bg-[#11221B] border-[#E8E1D3] dark:border-[#234436] text-[#142E22] dark:text-[#F6F3EE] hover:border-[#1B4332]/40';
                     if (showImmediateFeedback) {
                       if (isCorrectOpt) {
-                        optStyle = 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-900 dark:text-emerald-200 font-semibold';
+                        optStyle = 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-900 dark:text-emerald-200 font-semibold shadow-xs';
                       } else if (isSelected && !isCorrectOpt) {
                         optStyle = 'bg-red-50 dark:bg-red-950/40 border-red-500 text-red-900 dark:text-red-200';
                       }
                     } else if (isSelected) {
-                      optStyle = 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] text-white font-semibold';
+                      optStyle = 'bg-[#1B4332] dark:bg-[#2D6A4F] border-[#1B4332] text-white font-semibold shadow-xs';
                     }
 
                     return (
-                      <button
+                      <motion.button
                         key={optIdx}
+                        whileHover={!showImmediateFeedback ? { scale: 1.008, x: 2 } : {}}
+                        whileTap={!showImmediateFeedback ? { scale: 0.992 } : {}}
                         disabled={showImmediateFeedback}
                         onClick={() => setUserSelectedIndex(optIdx)}
                         className={`w-full p-4 rounded-xl border text-left text-xs sm:text-sm transition-all flex items-start gap-3 ${optStyle} tap-target-base`}
@@ -924,7 +933,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
                         <div className="flex-1">
                           <MarkdownView content={opt} />
                         </div>
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -1085,7 +1094,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         )
       )}
     </div>

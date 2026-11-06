@@ -42,9 +42,11 @@ import {
   BookOpen,
   AlertTriangle,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sparkles
 } from 'lucide-react';
 import { compressImage } from '../../utils/imageCompressor';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AskAssistantProps {
   onLaunchCBTWithNotes?: (notesText: string, topicName: string) => void;
@@ -530,14 +532,17 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
               const isSpeaking = currentlySpeakingId === m.id;
 
               return (
-                <div
+                <motion.div
                   key={m.id}
+                  initial={{ opacity: 0, y: 14, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                   className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[90%] sm:max-w-[85%] rounded-xl p-5 text-xs sm:text-sm leading-relaxed space-y-2.5 ${
+                    className={`max-w-[90%] sm:max-w-[85%] rounded-xl p-5 text-xs sm:text-sm leading-relaxed space-y-2.5 transition-shadow ${
                       isUser
-                        ? 'bg-[#1B4332] dark:bg-[#2D6A4F] text-white'
+                        ? 'bg-[#1B4332] dark:bg-[#2D6A4F] text-white shadow-sm'
                         : 'bg-white dark:bg-[#162C23] border border-[#E8E1D3] dark:border-[#234436] text-[#142E22] dark:text-[#F6F3EE] paper-shadow-sm'
                     }`}
                   >
@@ -547,6 +552,39 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
                         <Paperclip className="w-3.5 h-3.5" />
                         <span className="truncate">{m.attachment.name}</span>
                       </div>
+                    )}
+
+                    {/* Soundwave equalizer indicator when speaking */}
+                    {isSpeaking && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-xs font-mono text-[#C67D0A] dark:text-[#E0A844]"
+                      >
+                        <div className="flex items-end gap-1 h-3.5">
+                          <motion.span
+                            animate={{ height: ['4px', '14px', '6px', '12px', '4px'] }}
+                            transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
+                            className="w-1 bg-[#C67D0A] dark:bg-[#E0A844] rounded-full inline-block"
+                          />
+                          <motion.span
+                            animate={{ height: ['8px', '4px', '14px', '7px', '8px'] }}
+                            transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut', delay: 0.1 }}
+                            className="w-1 bg-[#C67D0A] dark:bg-[#E0A844] rounded-full inline-block"
+                          />
+                          <motion.span
+                            animate={{ height: ['6px', '14px', '5px', '10px', '6px'] }}
+                            transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
+                            className="w-1 bg-[#C67D0A] dark:bg-[#E0A844] rounded-full inline-block"
+                          />
+                          <motion.span
+                            animate={{ height: ['12px', '5px', '11px', '4px', '12px'] }}
+                            transition={{ duration: 0.75, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
+                            className="w-1 bg-[#C67D0A] dark:bg-[#E0A844] rounded-full inline-block"
+                          />
+                        </div>
+                        <span className="text-[11px] font-semibold">Reading aloud (Text-to-Speech)</span>
+                      </motion.div>
                     )}
 
                     <MarkdownView content={m.content} />
@@ -578,78 +616,110 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
                     {!isUser && (
                       <div className="pt-3 border-t border-[#E8E1D3] dark:border-[#234436] flex flex-wrap items-center gap-2 text-xs">
                         {/* Audio readout */}
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => speakText(m.content, m.id)}
                           title="Read answer aloud"
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                         >
                           {isSpeaking ? <VolumeX className="w-3 h-3 text-red-500" /> : <Volume2 className="w-3 h-3" />}
                           <span>{isSpeaking ? 'Stop Audio' : 'Listen'}</span>
-                        </button>
+                        </motion.button>
 
                         {/* Explain simpler */}
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => handleSendMessage(`Explain your previous answer simpler using a clear everyday Nigerian analogy.`)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                         >
                           <HelpCircle className="w-3 h-3 text-[#C67D0A]" />
                           <span>Explain Simpler</span>
-                        </button>
+                        </motion.button>
 
                         {/* Give an example */}
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => handleSendMessage(`Provide a concrete worked numerical example of this concept.`)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                         >
                           <BookOpen className="w-3 h-3" />
                           <span>Give Example</span>
-                        </button>
+                        </motion.button>
 
                         {/* Make CBT questions */}
                         {onLaunchCBTWithNotes && (
-                          <button
+                          <motion.button
+                            whileHover={{ scale: 1.04 }}
+                            whileTap={{ scale: 0.96 }}
                             onClick={() => onLaunchCBTWithNotes(m.content, activeSession?.title || 'Ask Topic')}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                           >
                             <CheckSquare className="w-3 h-3 text-[#1B4332] dark:text-[#52B788]" />
                             <span>Make CBT Questions</span>
-                          </button>
+                          </motion.button>
                         )}
 
                         {/* Save to Notes */}
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => handleSaveToNotes(m.content, m.id)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                         >
                           <FileText className="w-3 h-3" />
                           <span>{noteSavedId === m.id ? 'Saved to Notes!' : 'Save to Notes'}</span>
-                        </button>
+                        </motion.button>
 
                         {/* Copy */}
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.04 }}
+                          whileTap={{ scale: 0.96 }}
                           onClick={() => handleCopyText(m.content, m.id)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436] text-[#405449] dark:text-[#AEC1B6] hover:text-[#142E22]"
                         >
                           {copiedId === m.id ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                           <span>{copiedId === m.id ? 'Copied' : 'Copy'}</span>
-                        </button>
+                        </motion.button>
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
 
             {isLoading && (
-              <div className="flex justify-start">
-                <div className="p-5 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] space-y-3">
-                  <span className="font-mono text-xs text-[#C67D0A] dark:text-[#E0A844] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#C67D0A] animate-ping" />
-                    Formulating answer with {activeStyle.replace('_', ' ')} rigor...
-                  </span>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="p-5 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] space-y-3 paper-shadow-sm">
+                  <div className="flex items-center gap-2.5 text-xs font-mono text-[#C67D0A] dark:text-[#E0A844]">
+                    <div className="flex items-center gap-1">
+                      <motion.span
+                        animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                        className="w-2 h-2 rounded-full bg-[#C67D0A] dark:bg-[#E0A844]"
+                      />
+                      <motion.span
+                        animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                        className="w-2 h-2 rounded-full bg-[#C67D0A] dark:bg-[#E0A844]"
+                      />
+                      <motion.span
+                        animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+                        className="w-2 h-2 rounded-full bg-[#C67D0A] dark:bg-[#E0A844]"
+                      />
+                    </div>
+                    <span>Formulating answer with {activeStyle.replace('_', ' ')} rigor...</span>
+                  </div>
                   <Skeleton lines={4} />
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {error && (

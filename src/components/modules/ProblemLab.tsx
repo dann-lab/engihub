@@ -28,8 +28,11 @@ import {
   Briefcase,
   Search,
   Filter,
-  Trash2
+  Trash2,
+  Sparkles,
+  Zap
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ProblemLabProps {
   onSendToPortfolio: (solution: CommunityProblemSolution) => void;
@@ -51,6 +54,13 @@ const TEMPLATE_CHALLENGES = [
     field: 'mechanical' as EngineeringField
   },
   {
+    title: 'IoT Poultry Climate & Ammonia Exhaust Controller',
+    location: 'Ibadan / Oyo State',
+    context: 'High ambient heat stress (>36°C) and ammonia gas buildup trigger 25% broiler flock mortality during dry season heat waves.',
+    constraints: 'ESP32 microcontroller, DHT22 sensors, MQ-137 gas probe, and 12V automotive radiator relay switching.',
+    field: 'computer' as EngineeringField
+  },
+  {
     title: 'Stormwater Silt-Trap and Permeable Infiltration Pavers',
     location: 'Lekki / Ajah, Lagos State',
     context: 'Recurrent flash floods inundate roadside drains within 20 minutes of coastal rain, washing road shoulders and causing dampness.',
@@ -63,6 +73,13 @@ const TEMPLATE_CHALLENGES = [
     context: 'Irregular public municipal water supply leaves 5,000 community members dependent on tanker water at exorbitant cost.',
     constraints: 'Submersible 2.2kW helical rotor pump, 15m dynamic head, MPPT drive, and overhead gravity distribution manifold.',
     field: 'civil' as EngineeringField
+  },
+  {
+    title: 'Prepaid Energy Meter Bypass & Anti-Tamper Detection Module',
+    location: 'Alaba / Ojo, Lagos State',
+    context: 'Neutral-loop bypass and phase shunting cause 40% commercial distribution losses and transformer phase overload burnouts.',
+    constraints: 'Split-core current transformer (CT), ADE7753 energy measurement IC, and encrypted RF transmission.',
+    field: 'electrical' as EngineeringField
   },
   {
     title: 'Continuous Flow Biodigester for Abattoir Waste & Cooking Gas',
@@ -79,6 +96,13 @@ const TEMPLATE_CHALLENGES = [
     field: 'mechanical' as EngineeringField
   },
   {
+    title: 'Solar Cold-Room with Thermal Ice Storage for Fish Preservation',
+    location: 'Makurdi / Benue State',
+    context: 'Catfish and tilapia farmers lose up to 35% of harvested fresh fish before reaching Jos and Abuja markets due to zero grid cold-chain.',
+    constraints: 'Phase-change thermal brine ice bank, 24V DC hermetic compressor, and polyurethane insulated sandwich panels.',
+    field: 'agricultural' as EngineeringField
+  },
+  {
     title: 'Pure Sine Wave Dual-Conversion Inverter with LiFePO4 BMS',
     location: 'Computer Village / Ikeja, Lagos State',
     context: 'Cheap square-wave inverters hum, overheat laptop chargers and fan motors, and kill lead-acid batteries within 8 months.',
@@ -93,6 +117,27 @@ const TEMPLATE_CHALLENGES = [
     field: 'computer' as EngineeringField
   },
   {
+    title: 'Solar Powered Rice De-stoner and Polisher',
+    location: 'Abakaliki / Ebonyi State',
+    context: 'Local brown rice fetches 40% lower market price due to grit and stone contamination from earthen drying floors.',
+    constraints: 'Vibratory screen classifier, aspirator blower ducting, and 2.5 HP single-phase motor with solar VFD.',
+    field: 'agricultural' as EngineeringField
+  },
+  {
+    title: 'Mini-Hydro Run-of-River Pelton Turbine',
+    location: 'Obudu / Cross River State',
+    context: 'High elevation waterfall (42m head) flows unused while hillside clinic runs a noisy 2kVA generator with erratic fuel supply.',
+    constraints: 'Cast bronze/aluminum Pelton runner buckets, mild steel nozzle needle valve, and 3kVA permanent magnet alternator.',
+    field: 'mechanical' as EngineeringField
+  },
+  {
+    title: 'Waste Plastic Pyrolysis Unit for Diesel/Kerosene Fuel Distillation',
+    location: 'Port Harcourt / Rivers State',
+    context: 'Accumulated low-density polyethylene (LDPE) waste chokes drainage canals while community fishing boats struggle with high fuel prices.',
+    constraints: 'Mild steel batch retort reactor with vacuum safety valve, reflux condensing coil, and carbon black separator.',
+    field: 'chemical' as EngineeringField
+  },
+  {
     title: 'Passive Zeer-Pot Evaporative Cooling Chamber for Produce',
     location: 'Dawanau / Kano Municipal, Kano State',
     context: 'Post-harvest tomatoes and peppers experience 40% rot within 48 hours in hot Sahelian heat without cold storage.',
@@ -105,46 +150,11 @@ const TEMPLATE_CHALLENGES = [
     context: 'Imported irrigation pump impellers cost over ₦65,000 with months of shipping downtime when worn by silt erosion.',
     constraints: 'Clay-bonded green sand molding, scrap automotive piston aluminum, and waste-engine-oil burner furnace.',
     field: 'materials' as EngineeringField
-  },
-  {
-    title: 'Solar-Powered Walk-in Cold Room for Post-Harvest Tomato Aggregation',
-    location: 'Zaria / Kaduna State',
-    context: 'Tomato gluts cause 50% post-harvest spoilage at farm gates because ambient temperatures reach 38°C with zero grid electricity for cold chains.',
-    constraints: 'R290 hydrocarbon refrigerant split unit, polyurethane sandwich panels, and roof-mounted 5kW PV array with thermal phase-change ice bank.',
-    field: 'mechanical' as EngineeringField
-  },
-  {
-    title: 'Floating Riverine Hydrokinetic Micro-Turbine for Creek Fishing Camps',
-    location: 'Brass / Bayelsa State (Niger Delta)',
-    context: 'Isolated riverine fishing camps have zero grid connections and rely on noisy two-stroke petrol outboard fuel for night battery charging.',
-    constraints: 'Catamaran pontoon raft with submerged Savonius/Darrieus hybrid runner driving a permanent magnet automotive alternator at 1.8 m/s tidal flow.',
-    field: 'electrical' as EngineeringField
-  },
-  {
-    title: 'Biomass-Fired Rotary Drum Dryer for Maize & Cassava Chips',
-    location: 'Makurdi / Benue State (Middle Belt)',
-    context: 'Rainy-season harvest rains prevent open-air road drying, leading to toxic aflatoxin mold infestation in stored maize grains.',
-    constraints: 'Indirect biomass furnace with flue gas heat exchanger, cyclonic dust separator, and hand-cranked or solar-driven rotating drum.',
-    field: 'agricultural' as EngineeringField
-  },
-  {
-    title: 'Pyrolysis Retort for Waste Plastic Conversion to Diesel Fractions',
-    location: 'Trans-Amadi / Port Harcourt, Rivers State',
-    context: 'Piles of LDPE water sachets and HDPE containers clog urban canals and drains, causing severe street flooding and environmental hazards.',
-    constraints: 'Batch oxygen-free reactor sealed with high-temperature graphite gaskets, reflux fractionating condenser, and water bubbler flame arrester.',
-    field: 'chemical' as EngineeringField
-  },
-  {
-    title: 'Automated Solar Egg Incubator with PWM Humidity & Tilting Rack',
-    location: 'Obantoko / Abeokuta, Ogun State',
-    context: 'Frequent national grid drops trigger chilling of hatching poultry eggs, destroying batch hatchability and crippling local smallholders.',
-    constraints: 'PTC ceramic heating element, 12V DC servo motor rack rocker, DHT22 sensor, and dual-source 12V LiFePO4 battery backup.',
-    field: 'electrical' as EngineeringField
   }
 ];
 
 export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => {
-  const { currentUser, userProfile, updateProfileData, recordDailyActivity, isAdmin } = useAuth();
+  const { currentUser, userProfile, updateProfileData, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'solver' | 'library'>('solver');
 
   // Input states
@@ -197,8 +207,46 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
       });
 
       const selectedIndex = typeof data.selectedSolutionIndex === 'number' ? data.selectedSolutionIndex : 0;
-      const recSol = data.threeSolutions?.[selectedIndex] || data.threeSolutions?.[0];
+      const recSol = data.threeSolutions?.[selectedIndex] || data.threeSolutions?.[0] || data.solutionOptions?.[0];
       const selectedTitle = data.selectedSolutionTitle || recSol?.title || 'Engineered Recommended Solution';
+
+      const solutionOptions = Array.isArray(data.solutionOptions) && data.solutionOptions.length > 0
+        ? data.solutionOptions
+        : Array.isArray(data.threeSolutions)
+          ? data.threeSolutions.map((s: any) => ({
+              title: s.title || 'Alternative Solution',
+              type: s.type || 'Engineering Alternative',
+              description: s.description || '',
+              pros: Array.isArray(s.pros) ? s.pros : ['Locally viable'],
+              cons: Array.isArray(s.cons) ? s.cons : ['Requires capital']
+            }))
+          : [
+              {
+                title: selectedTitle,
+                type: 'Direct Implementation',
+                description: data.breakdown || data.bestSolutionDesign || 'Comprehensive engineering solution design.',
+                pros: ['Locally viable', 'Uses standard Nigerian market parts'],
+                cons: ['Requires careful installation']
+              }
+            ];
+
+      const bemeEstimate = Array.isArray(data.bemeEstimate) && data.bemeEstimate.length > 0
+        ? data.bemeEstimate
+        : Array.isArray(data.materialsAndBEME)
+          ? data.materialsAndBEME.map((m: any) => ({
+              item: m.item || 'Material Item',
+              quantity: m.quantity || '1 lot',
+              unitRateNaira: Number(m.unitRateNaira || m.estimatedUnitCostNaira || 0),
+              totalNaira: Number(m.totalNaira || m.estimatedTotalCostNaira || 0),
+              localSource: m.localSource || 'Local Market'
+            }))
+          : [];
+
+      const costScore = Number(data.feasibility?.costScore ?? data.feasibilityScores?.costScore ?? 80);
+      const difficultyScore = Number(data.feasibility?.difficultyScore ?? data.feasibilityScores?.difficultyScore ?? 82);
+      const impactScore = Number(data.feasibility?.impactScore ?? data.feasibilityScores?.impactScore ?? 92);
+      const sustainability = Number(data.feasibility?.sustainability ?? data.feasibilityScores?.sustainabilityScore ?? 85);
+      const overallScore = Number(data.feasibility?.overallScore ?? Math.round((costScore + difficultyScore + impactScore + sustainability) / 4));
 
       const full: CommunityProblemSolution = {
         ...data,
@@ -210,7 +258,24 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
         problemTitle: problemTitle,
         localContext: localContext,
         stateOrRegion: stateOrRegion,
+        breakdown: data.breakdown || data.bestSolutionDesign || 'Technical breakdown of problem root causes and governing failure points.',
+        rootCauses: Array.isArray(data.rootCauses) && data.rootCauses.length > 0 ? data.rootCauses : ['Material fatigue from unmitigated vibration', 'Inadequate thermal protection under high ambient temperatures'],
+        solutionOptions,
         selectedSolutionTitle: selectedTitle,
+        governingFormulas: data.governingFormulas || '$$P = \\frac{W}{t}$$',
+        sampleCalculations: data.sampleCalculations || 'Calculations sized for standard Nigerian operating conditions.',
+        materialsList: Array.isArray(data.materialsList) ? data.materialsList : bemeEstimate.map((b: any) => b.item),
+        bemeEstimate,
+        totalEstimatedCostNaira: Number(data.totalEstimatedCostNaira) || bemeEstimate.reduce((acc: number, b: any) => acc + (Number(b.totalNaira) || 0), 0) || 150000,
+        safetyAlerts: Array.isArray(data.safetyAlerts) && data.safetyAlerts.length > 0 ? data.safetyAlerts : (data.safetyWarning ? [data.safetyWarning] : ['Wear standard personal protective equipment (PPE) during assembly and testing.']),
+        feasibility: {
+          costScore,
+          difficultyScore,
+          impactScore,
+          sustainability,
+          overallScore
+        },
+        buildPlanSteps: Array.isArray(data.buildPlanSteps) && data.buildPlanSteps.length > 0 ? data.buildPlanSteps : (Array.isArray(data.stepByStepBuildPlan) ? data.stepByStepBuildPlan : ['Phase 1: Materials sourcing', 'Phase 2: Frame welding & machining', 'Phase 3: Electrical wiring & fusing', 'Phase 4: Safety calibration & testing']),
         createdAt: Date.now(),
         upvotes: 0,
         upvoters: [],
@@ -222,7 +287,6 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
       setCurrentSolution(full);
       // Auto save to user's saved solutions or library
       await firestoreService.saveCommunitySolution(full);
-      recordDailyActivity(undefined, 'Applied Engineering Design');
       await loadLibrary();
     } catch (err: any) {
       console.error('Problem lab generation error:', err);
@@ -325,8 +389,10 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {TEMPLATE_CHALLENGES.map((tmpl, idx) => (
-                <button
+                <motion.button
                   key={idx}
+                  whileHover={{ scale: 1.015, y: -2 }}
+                  whileTap={{ scale: 0.985 }}
                   onClick={() => {
                     setProblemTitle(tmpl.title);
                     setLocalContext(tmpl.context);
@@ -334,11 +400,14 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                     setConstraints(tmpl.constraints);
                     setSelectedField(tmpl.field);
                   }}
-                  className="p-3 rounded-[3px] bg-[#121316] border border-[#2C3038] hover:border-[#EA580C] text-left transition-colors"
+                  className="p-3 rounded-[3px] bg-[#121316] border border-[#2C3038] hover:border-[#EA580C] text-left transition-all hover:shadow-md hover:shadow-[#EA580C]/10 group"
                 >
-                  <span className="font-mono text-[10px] text-[#EA580C] uppercase block">{tmpl.location}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-[#EA580C] uppercase block">{tmpl.location}</span>
+                    <Sparkles className="w-3 h-3 text-[#EA580C] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                   <span className="text-xs font-semibold text-[#F5F5F4] block mt-0.5">{tmpl.title}</span>
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -415,25 +484,36 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
 
             {isLoading ? (
               <div className="p-6 rounded-[3px] bg-[#121316] border border-[#2C3038] space-y-3">
-                <span className="text-xs font-mono text-[#EA580C] animate-pulse block">
-                  Senior engineer mentor is calculating specifications, Naira BEME, and build steps...
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#EA580C] animate-ping" />
+                  <span className="text-xs font-mono text-[#EA580C] animate-pulse">
+                    Senior engineer mentor is calculating specifications, Naira BEME, and build steps...
+                  </span>
+                </div>
                 <Skeleton lines={5} />
               </div>
             ) : (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={handleGenerate}
                 disabled={!problemTitle.trim() || !localContext.trim()}
-                className="w-full py-2.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-colors disabled:opacity-50"
+                className="w-full py-3 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-all shadow-md shadow-[#EA580C]/20 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Formulate Engineering Solution & Naira BEME &rarr;
-              </button>
+                <Zap className="w-4 h-4" />
+                <span>Formulate Engineering Solution & Naira BEME &rarr;</span>
+              </motion.button>
             )}
           </div>
 
           {/* Generated Blueprint View */}
           {currentSolution && (
-            <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-6"
+            >
               <div className="p-5 sm:p-6 rounded-[4px] bg-[#181A1F] border border-[#2C3038] space-y-5">
                 <div className="border-b border-[#2C3038] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -498,8 +578,13 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                         <span className="text-[#A8A29E]">Cost Feasibility</span>
                         <span className="text-[#EA580C]">{currentSolution.feasibility.costScore}%</span>
                       </div>
-                      <div className="w-full bg-[#1F2228] h-1.5 rounded-[1px] overflow-hidden">
-                        <div className="bg-[#EA580C] h-full" style={{ width: `${currentSolution.feasibility.costScore}%` }} />
+                      <div className="w-full bg-[#1F2228] h-2 rounded-[1px] overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${currentSolution.feasibility.costScore}%` }}
+                          transition={{ duration: 0.8, ease: "easeOut" }}
+                          className="bg-[#EA580C] h-full"
+                        />
                       </div>
                     </div>
 
@@ -508,8 +593,13 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                         <span className="text-[#A8A29E]">Build Simplicity</span>
                         <span className="text-[#EA580C]">{currentSolution.feasibility.difficultyScore}%</span>
                       </div>
-                      <div className="w-full bg-[#1F2228] h-1.5 rounded-[1px] overflow-hidden">
-                        <div className="bg-[#EA580C] h-full" style={{ width: `${currentSolution.feasibility.difficultyScore}%` }} />
+                      <div className="w-full bg-[#1F2228] h-2 rounded-[1px] overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${currentSolution.feasibility.difficultyScore}%` }}
+                          transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                          className="bg-[#EA580C] h-full"
+                        />
                       </div>
                     </div>
 
@@ -518,8 +608,13 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                         <span className="text-[#A8A29E]">Community Benefit</span>
                         <span className="text-[#EA580C]">{currentSolution.feasibility.impactScore}%</span>
                       </div>
-                      <div className="w-full bg-[#1F2228] h-1.5 rounded-[1px] overflow-hidden">
-                        <div className="bg-[#EA580C] h-full" style={{ width: `${currentSolution.feasibility.impactScore}%` }} />
+                      <div className="w-full bg-[#1F2228] h-2 rounded-[1px] overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${currentSolution.feasibility.impactScore}%` }}
+                          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                          className="bg-[#EA580C] h-full"
+                        />
                       </div>
                     </div>
 
@@ -528,8 +623,13 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                         <span className="text-[#A8A29E]">Sustainability</span>
                         <span className="text-[#EA580C]">{currentSolution.feasibility.sustainability}%</span>
                       </div>
-                      <div className="w-full bg-[#1F2228] h-1.5 rounded-[1px] overflow-hidden">
-                        <div className="bg-[#EA580C] h-full" style={{ width: `${currentSolution.feasibility.sustainability}%` }} />
+                      <div className="w-full bg-[#1F2228] h-2 rounded-[1px] overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${currentSolution.feasibility.sustainability}%` }}
+                          transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
+                          className="bg-[#EA580C] h-full"
+                        />
                       </div>
                     </div>
                   </div>
@@ -644,7 +744,7 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       ) : (
