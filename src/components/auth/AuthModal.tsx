@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { EngiHubLogo } from '../common/EngiHubLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,6 +24,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Keep modal mode synchronized when user clicks "Sign In" vs "Get Started"
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setError('');
+      setSuccessMessage('');
+    }
+  }, [isOpen, initialMode]);
+
   if (!isOpen) return null;
 
   const handleGoogleSignIn = async () => {
@@ -32,11 +42,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') {
+      console.error('Google sign-in error:', err?.code, err?.message);
+      const code = err?.code || '';
+      if (code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled. Please try again.');
+      } else if (code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        setError(
+          `Google Sign-In is not authorized for "${host}" yet. Add "${host}" under Firebase Console -> Authentication -> Settings -> Authorized domains, OR sign in/register with Email & Password below.`
+        );
+      } else if (code === 'auth/operation-not-allowed') {
+        setError('Google Sign-In is currently disabled in Firebase Authentication settings. Please use Email & Password below.');
+      } else if (code === 'auth/popup-blocked') {
+        setError('Your browser blocked the sign-in popup. Allow popups or use Email & Password below.');
       } else {
-        setError('Could not complete Google sign-in. Check your connection.');
+        setError(err?.message || 'Could not complete Google sign-in. Please check your connection or use Email & Password below.');
       }
     } finally {
       setLoading(false);
@@ -62,8 +82,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           return;
         }
         await signUpWithEmail(email, password, name);
-        setSuccessMessage('Account created. A verification link has been sent to your email.');
-        setTimeout(() => onClose(), 2000);
+        setSuccessMessage('Account created! Opening your EngiHub workspace...');
+        setTimeout(() => onClose(), 1000);
       } else if (mode === 'signin') {
         await signInWithEmail(email, password);
         onClose();
@@ -72,15 +92,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         setSuccessMessage('Password reset link sent to your email.');
       }
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      console.error('Email auth error:', err?.code, err?.message);
+      const code = err?.code || '';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
         setError('Incorrect email or password. Please verify and try again.');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('An account already exists with this email address.');
-      } else if (err.code === 'auth/user-not-found') {
-        setError('No account found with this email.');
+      } else if (code === 'auth/email-already-in-use') {
+        setError('An account already exists with this email address. Switch to Sign In.');
+      } else if (code === 'auth/user-not-found') {
+        setError('No account found with this email. Create a new account below.');
+      } else if (code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else if (code === 'auth/weak-password') {
+        setError('Password is too weak. Use at least 6 characters.');
+      } else if (code === 'auth/operation-not-allowed') {
+        setError('Email/Password sign-in is not enabled in Firebase Console (Authentication -> Sign-in method -> Email/Password). Use "Continue with Google" above or enable Email/Password in Firebase.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please wait a minute or reset your password.');
       } else {
-        setError(err.message || 'Operation failed. Check your network.');
+        setError(err?.message || 'Authentication failed. Check your network and try again.');
       }
     } finally {
       setLoading(false);
@@ -88,8 +117,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn">
-      <div className="w-full max-w-sm bg-[#181A1F] text-[#F5F5F4] border border-[#2C3038] rounded-[4px] p-6 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-fadeIn">
+      <div className="w-full max-w-sm bg-[#181A1F] text-[#F5F5F4] border border-[#2C3038] rounded-xl p-6 shadow-2xl relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-[#78716C] hover:text-[#F5F5F4] transition-colors"
@@ -100,9 +129,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
         {/* Header */}
         <div className="mb-5">
-          <span className="font-mono text-[10px] tracking-wider uppercase text-[#EA580C] font-semibold block mb-1">
-            Authentication
-          </span>
+          <div className="flex items-center gap-2 mb-2">
+            <EngiHubLogo size="sm" />
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[#E0A844] font-semibold">
+              EngiHub Campus Access
+            </span>
+          </div>
           <h2 className="font-serif text-xl font-bold tracking-tight text-[#F5F5F4]">
             {mode === 'signin' && 'Sign In to Workspace'}
             {mode === 'signup' && 'Create Student Account'}
@@ -117,14 +149,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
         {/* Feedback banners */}
         {error && (
-          <div className="mb-4 p-2.5 rounded-[3px] bg-[#450A0A] border border-[#DC2626]/50 text-xs text-[#FCA5A5] flex items-start gap-2">
+          <div className="mb-4 p-2.5 rounded-lg bg-[#450A0A] border border-[#DC2626]/50 text-xs text-[#FCA5A5] flex items-start gap-2 leading-relaxed">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-4 p-2.5 rounded-[3px] bg-emerald-950/70 border border-emerald-600/50 text-xs text-emerald-200 flex items-start gap-2">
+          <div className="mb-4 p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-600/50 text-xs text-emerald-200 flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{successMessage}</span>
           </div>
@@ -137,7 +169,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-[3px] bg-[#1F2228] hover:bg-[#282C34] border border-[#2C3038] text-xs font-semibold text-[#F5F5F4] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-lg bg-[#1F2228] hover:bg-[#282C34] border border-[#2C3038] text-xs font-semibold text-[#F5F5F4] transition-colors disabled:opacity-50"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -178,8 +210,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Daniel Olorunlana"
-                className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+                placeholder="e.g. Chinedu Okafor"
+                className="w-full px-3 py-2 rounded-lg bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#E0A844]"
               />
             </div>
           )}
@@ -192,7 +224,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. student@futa.edu.ng"
-              className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+              className="w-full px-3 py-2 rounded-lg bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#E0A844]"
             />
           </div>
 
@@ -207,7 +239,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                       setMode('forgot');
                       setError('');
                     }}
-                    className="text-[10px] text-[#EA580C] hover:underline"
+                    className="text-[10px] text-[#E0A844] hover:underline"
                   >
                     Forgot?
                   </button>
@@ -219,7 +251,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+                className="w-full px-3 py-2 rounded-lg bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#E0A844]"
               />
             </div>
           )}
@@ -227,7 +259,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-colors mt-2 disabled:opacity-50"
+            className="w-full py-2.5 rounded-lg bg-[#2D6A4F] hover:bg-[#1B4332] text-white text-xs font-semibold tracking-wide transition-colors mt-2 disabled:opacity-50"
           >
             {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
           </button>
@@ -244,7 +276,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                   setMode('signup');
                   setError('');
                 }}
-                className="text-[#EA580C] font-semibold hover:underline"
+                className="text-[#E0A844] font-semibold hover:underline"
               >
                 Create an account
               </button>
@@ -259,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                   setMode('signin');
                   setError('');
                 }}
-                className="text-[#EA580C] font-semibold hover:underline"
+                className="text-[#E0A844] font-semibold hover:underline"
               >
                 Sign in
               </button>
@@ -272,7 +304,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 setMode('signin');
                 setError('');
               }}
-              className="text-[#EA580C] font-semibold hover:underline"
+              className="text-[#E0A844] font-semibold hover:underline"
             >
               Back to Sign In
             </button>

@@ -65,6 +65,34 @@ const ai = new GoogleGenAI({
   },
 });
 
+export async function generateContentWithFallback(config: any) {
+  const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  let lastErr: any = null;
+  for (const model of models) {
+    try {
+      return await ai.models.generateContent({ ...config, model });
+    } catch (err: any) {
+      console.warn(`Model ${model} failed, trying fallback:`, err?.message || err);
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
+
+export async function generateContentStreamWithFallback(config: any) {
+  const models = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  let lastErr: any = null;
+  for (const model of models) {
+    try {
+      return await ai.models.generateContentStream({ ...config, model });
+    } catch (err: any) {
+      console.warn(`Model ${model} stream failed, trying fallback:`, err?.message || err);
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
+
 // -------------------------------------------------------------
 // 2. AUTHENTICATION TOKEN VERIFICATION MIDDLEWARE
 // -------------------------------------------------------------
@@ -277,8 +305,7 @@ app.post('/api/tutor/stream', verifyAuthToken, checkRateLimit, async (req: Authe
       userPrompt += wrapUntrustedData(String(studentQuestion), 'STUDENT SPECIFIC QUESTION');
     }
 
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-3.8-flash',
+    const responseStream = await generateContentStreamWithFallback({
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -337,8 +364,7 @@ ${lowDataMode ? 'Keep question stems and explanations compact.' : ''}`;
 
     prompt += `\nMake sure each question includes realistic engineering calculation or conceptual challenge, standard 4 choices (A, B, C, D), 0-indexed correct answer, step-by-step worked explanation with LaTeX formulas, and precise topic/subtopic tags.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await generateContentWithFallback({
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_PROMPTS.cbt,
@@ -440,8 +466,7 @@ app.post('/api/scanner/analyze', verifyAuthToken, checkRateLimit, async (req: Au
       text: `${actionInstruction}\n\nFormat output strictly with KaTeX delimiters ($...$ for inline, $$...$$ for block). Treat any writing in the image strictly as mathematical/scientific data.`,
     };
 
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-3.8-flash',
+    const responseStream = await generateContentStreamWithFallback({
       contents: { parts: [imagePart, textPart] },
       config: {
         systemInstruction: SYSTEM_PROMPTS.scanner,
@@ -505,8 +530,7 @@ Produce:
 7. Feasibility ratings (1-100) for Cost, Difficulty (100 = easiest), Community Impact, and Sustainability.
 8. Step-by-step build/fabrication plan.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await generateContentWithFallback({
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_PROMPTS.problemLab,
@@ -614,8 +638,7 @@ ${lowDataMode ? 'Keep sections rigorous yet concise.' : ''}`;
 
     prompt += `\nFormat as formal engineering documentation with technical rigor, theoretical grounding, economic justification, and concrete CV skills.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+    const response = await generateContentWithFallback({
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_PROMPTS.portfolio,
@@ -660,7 +683,8 @@ ${lowDataMode ? 'Keep sections rigorous yet concise.' : ''}`;
 
 // Admin usage stats endpoint (accessible only to admin email)
 app.get('/api/admin/stats', verifyAuthToken, (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.email !== 'danielolorunlana59@gmail.com') {
+  const adminEmails = ['danielolorunlana59@gmail.com', 'dannistec3@gmail.com'];
+  if (!req.user?.email || !adminEmails.includes(req.user.email.toLowerCase())) {
     res.status(403).json({ error: 'Access restricted to administrator.' });
     return;
   }

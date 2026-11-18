@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { BookOpen, Check } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 
 const NIGERIAN_UNIVERSITIES = [
   'Federal University of Technology, Akure (FUTA)',
@@ -57,8 +57,8 @@ export const OnboardingModal: React.FC = () => {
       : ['Thermodynamics (MEE 301)', 'Engineering Mathematics III (ENG 301)']
   );
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // If user has already completed onboarding, do not display
   if (!userProfile || userProfile.onboardingCompleted) return null;
 
   const toggleCourse = (c: string) => {
@@ -72,6 +72,7 @@ export const OnboardingModal: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       await updateProfileData({
         university,
@@ -80,8 +81,9 @@ export const OnboardingModal: React.FC = () => {
         courses: selectedCourses,
         onboardingCompleted: true,
       });
-    } catch (e) {
-      console.error(e);
+    } catch (err: any) {
+      console.error('Onboarding save notice:', err);
+      setError(err?.message || 'Could not sync academic profile to cloud, saved locally.');
     } finally {
       setLoading(false);
     }
@@ -89,28 +91,40 @@ export const OnboardingModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn">
-      <div className="w-full max-w-lg bg-[#181A1F] text-[#F5F5F4] border border-[#2C3038] rounded-[4px] p-6 sm:p-7 shadow-2xl space-y-5">
-        <div>
-          <span className="font-mono text-[10px] tracking-wider uppercase text-[#EA580C] font-semibold block mb-1">
-            Academic Profile Setup
-          </span>
-          <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#F5F5F4]">
-            Welcome to EngiHub.
-          </h2>
-          <p className="text-xs text-[#A8A29E] mt-1">
-            Configure your institution, discipline, and enrolled courses to tailor the baby-step tutor and CBT problem sets.
-          </p>
+      <div className="w-full max-w-lg bg-[#11221B] text-[#F6F3EE] border border-[#223A30] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-[#2D6A4F] text-[#F6F3EE] font-serif font-bold text-lg flex items-center justify-center shrink-0">
+            E
+          </div>
+          <div>
+            <span className="font-mono text-[10px] tracking-wider uppercase text-[#E0A844] font-semibold block">
+              Academic Profile Setup
+            </span>
+            <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#F6F3EE]">
+              Welcome to EngiHub.
+            </h2>
+          </div>
         </div>
+        <p className="text-xs text-[#AEC1B6]">
+          Configure your institution, discipline, and enrolled courses to tailor your baby-step tutor and CBT problem sets.
+        </p>
+
+        {error && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-[11px] font-mono text-[#A8A29E] mb-1">
+            <label className="block text-[11px] font-mono text-[#AEC1B6] mb-1">
               Institution / University
             </label>
             <select
               value={university}
               onChange={(e) => setUniversity(e.target.value)}
-              className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+              className="w-full px-3 py-2 rounded-lg bg-[#0B1612] border border-[#223A30] text-xs text-[#F6F3EE] focus:outline-hidden focus:border-[#E0A844]"
             >
               {NIGERIAN_UNIVERSITIES.map((u) => (
                 <option key={u} value={u}>
@@ -122,13 +136,13 @@ export const OnboardingModal: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-mono text-[#A8A29E] mb-1">
+              <label className="block text-[11px] font-mono text-[#AEC1B6] mb-1">
                 Department
               </label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+                className="w-full px-3 py-2 rounded-lg bg-[#0B1612] border border-[#223A30] text-xs text-[#F6F3EE] focus:outline-hidden focus:border-[#E0A844]"
               >
                 {ENGINEERING_DEPTS.map((d) => (
                   <option key={d} value={d}>
@@ -139,13 +153,13 @@ export const OnboardingModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono text-[#A8A29E] mb-1">
+              <label className="block text-[11px] font-mono text-[#AEC1B6] mb-1">
                 Level of Study
               </label>
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
-                className="w-full px-3 py-2 rounded-[3px] bg-[#121316] border border-[#2C3038] text-xs text-[#F5F5F4] focus:outline-none focus:border-[#EA580C]"
+                className="w-full px-3 py-2 rounded-lg bg-[#0B1612] border border-[#223A30] text-xs text-[#F6F3EE] focus:outline-hidden focus:border-[#E0A844]"
               >
                 <option value="100L">100L (Pre-Engineering)</option>
                 <option value="200L">200L (Foundations)</option>
@@ -157,7 +171,7 @@ export const OnboardingModal: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono text-[#A8A29E] mb-1.5">
+            <label className="block text-[11px] font-mono text-[#AEC1B6] mb-1.5">
               Select Current Enrolled Courses
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
@@ -168,14 +182,14 @@ export const OnboardingModal: React.FC = () => {
                     key={course}
                     type="button"
                     onClick={() => toggleCourse(course)}
-                    className={`flex items-center justify-between p-2 rounded-[3px] border text-left text-[11px] font-medium transition-colors ${
+                    className={`flex items-center justify-between p-2 rounded-lg border text-left text-[11px] font-medium transition-colors ${
                       isSelected
-                        ? 'bg-[#1F2228] border-[#EA580C] text-[#F5F5F4]'
-                        : 'bg-[#121316] border-[#2C3038] text-[#78716C] hover:text-[#A8A29E]'
+                        ? 'bg-[#1D3C2C] border-[#E0A844] text-[#F6F3EE]'
+                        : 'bg-[#0B1612] border-[#223A30] text-[#6E8578] hover:text-[#AEC1B6]'
                     }`}
                   >
                     <span className="truncate mr-1">{course}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#EA580C] shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#E0A844] shrink-0" />}
                   </button>
                 );
               })}
@@ -186,7 +200,7 @@ export const OnboardingModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide transition-colors disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg bg-[#E0A844] hover:bg-[#DDA15E] text-[#0B1612] text-xs font-bold tracking-wide transition-colors disabled:opacity-50"
             >
               {loading ? 'Saving Profile...' : 'Complete Setup & Open Workspace'}
             </button>

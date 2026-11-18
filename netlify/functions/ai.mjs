@@ -17,46 +17,85 @@ import { GoogleGenAI } from '@google/genai';
 // 1. GEMINI MODEL CONFIGURATION
 // 'gemini-3.1-flash-lite' is ultra-fast (<1s latency) and highly available.
 // ============================================================================
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const RAW_ENV_MODEL = process.env.GEMINI_MODEL || '';
+const DEPRECATED_OR_SLOW_MODELS = new Set([
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-3.8-flash',
+]);
+const GEMINI_MODEL = (!RAW_ENV_MODEL || DEPRECATED_OR_SLOW_MODELS.has(RAW_ENV_MODEL))
+  ? 'gemini-3.1-flash-lite'
+  : RAW_ENV_MODEL;
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 /**
- * Resilient Gemini caller that handles model capacity spikes (503)
- * by automatically falling back to alternative flash models.
+ * Resilient Gemini caller that avoids Netlify 10s serverless timeouts
+ * by prioritizing ultra-fast models and stripping slow search tools on timeout/quota error.
  */
 async function callGemini(ai, config) {
   const models = [
     GEMINI_MODEL,
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
   ];
   const uniqueModels = [...new Set(models)];
+  const startedAt = Date.now();
+  const TOTAL_BUDGET_MS = 9000;
   let lastErr = null;
 
-  for (const model of uniqueModels) {
+  for (let idx = 0; idx < uniqueModels.length; idx++) {
+    const model = uniqueModels[idx];
+    const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining < 1800) break;
+
+    // Give primary model up to 8500ms so legitimate larger JSON responses succeed on try 1,
+    // while fast API errors (<1s) still leave 8s+ for fallback within Netlify's 10s ceiling.
+    const timeoutMs = idx === 0 ? Math.min(8500, remaining) : remaining;
+
     try {
-      return await ai.models.generateContent({
-        ...config,
-        model,
-      });
+      return await withTimeout(
+        ai.models.generateContent({
+          ...config,
+          model,
+        }),
+        timeoutMs,
+        `Model ${model}`
+      );
     } catch (err) {
-      // If error is related to search grounding quota (429 RESOURCE_EXHAUSTED), retry without tools immediately
       if (config?.config?.tools) {
-        try {
-          const configWithoutTools = { ...config, config: { ...config.config } };
-          delete configWithoutTools.config.tools;
-          return await ai.models.generateContent({
-            ...configWithoutTools,
-            model,
-          });
-        } catch (retryErr) {
-          lastErr = retryErr;
+        const retryRemaining = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+        if (retryRemaining >= 2000) {
+          try {
+            const configWithoutTools = { ...config, config: { ...config.config } };
+            delete configWithoutTools.config.tools;
+            return await withTimeout(
+              ai.models.generateContent({
+                ...configWithoutTools,
+                model,
+              }),
+              retryRemaining,
+              `Model ${model} (no tools)`
+            );
+          } catch (retryErr) {
+            lastErr = retryErr;
+          }
         }
       }
       console.warn(`Model ${model} request failed, attempting fallback:`, err?.message || err);
       lastErr = err;
     }
   }
-  throw lastErr;
+  throw lastErr || new Error('Request timed out before a model could respond.');
 }
 
 // ============================================================================
@@ -287,6 +326,28 @@ export async function handler(reqOrEvent, context) {
       headers,
       body: '',
     };
+  }
+
+  // Handle GET health check cleanly
+  if (httpMethod === 'GET') {
+    const hasKey = Boolean(
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.GOOGLE_GENAI_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY ||
+      process.env.API_KEY ||
+      process.env.VITE_API_KEY ||
+      process.env.GEMINI_KEY
+    );
+    const healthBody = JSON.stringify({
+      status: 'ok',
+      apiKeyConfigured: hasKey,
+      model: GEMINI_MODEL,
+    });
+    if (isNetlifyV2 && typeof Response !== 'undefined') {
+      return new Response(healthBody, { status: 200, headers });
+    }
+    return { statusCode: 200, headers, body: healthBody };
   }
 
   // Enforce POST method
@@ -537,14 +598,14 @@ Explain why the correct answer works in simple, memorable everyday terms. Keep i
         pastQuestionStyle = '',
       } = body;
 
-      const count = Math.min(Math.max(Number(questionCount) || 10, 1), 20);
+      const count = Math.min(Math.max(Number(questionCount) || 5, 1), 6);
 
-      let prompt = `Generate exactly ${count} university-level engineering questions on the topic: "${String(topic).slice(0, 200)}".
+      let prompt = `Generate exactly ${count} university-level engineering questions STRICTLY about "${String(topic).slice(0, 200)}" (do NOT generate questions from unrelated topics).
 Target Course: ${String(course).slice(0, 100)}
 Difficulty: ${difficulty}
 Mode: ${mode}
 ${pastQuestionStyle ? `Examination Style: Formulate in authentic ${pastQuestionStyle} standard.` : ''}
-${lowDataMode ? '[LOW DATA MODE: Keep explanations mathematically rigorous and concise.]' : ''}
+Keep explanations focused and mathematically rigorous (2-3 concise steps with LaTeX and SI units).
 
 Include a realistic blend of question types:
 - multiple_choice: 4 options with 1 correct option index (0 to 3)
@@ -567,9 +628,9 @@ Return ONLY a valid JSON object matching this schema without markdown code block
       "numericAnswer": 0,
       "numericTolerance": 0.05,
       "unit": "kW",
-      "explanation": "Step-by-step worked derivation showing governing formulas and numerical substitutions",
-      "conceptTested": "Core principle tested (e.g. Isentropic compression ratio relationship)",
-      "whyOtherOptionsWrong": "Clear explanation of why distractors or false statements are incorrect",
+      "explanation": "Concise worked derivation showing governing formula, substitution, and units",
+      "conceptTested": "Core principle tested",
+      "whyOtherOptionsWrong": "1 sentence explaining why distractors are wrong",
       "topic": "${topic}",
       "subtopic": "Specific Subtopic Name",
       "difficulty": "${difficulty}"
@@ -736,105 +797,40 @@ Return ONLY a valid JSON object matching this schema without markdown code block
         userMessage = '',
       } = body;
 
-      let prompt = `Local Community Problem: ${problemTitle || userMessage}
-Region/State: ${stateOrRegion}
-Engineering Field: ${field}
-Local Conditions: ${localContext}
-Constraints: ${constraints || 'Budget limited, relies on local Nigerian markets and workshops'}
-${lowDataMode ? '[LOW DATA MODE: Concise, direct calculations.]' : ''}
+      const safeTitle = String(problemTitle || userMessage).slice(0, 250);
+      const safeContext = String(localContext).slice(0, 1500);
+      const safeRegion = String(stateOrRegion).slice(0, 120);
+      const safeField = String(field).slice(0, 80);
+      const safeConstraints = String(constraints || 'Budget limited, relies on local Nigerian markets and workshops').slice(0, 500);
 
-Generate a comprehensive engineering solution breakdown formatted as strict JSON:
-{
-  "problemTitle": "${problemTitle}",
-  "location": "${stateOrRegion}",
-  "breakdown": "Comprehensive technical breakdown of the problem, failure mechanisms, and engineering requirements in Nigeria",
-  "rootCauses": ["Root cause 1", "Root cause 2", "Root cause 3"],
-  "solutionOptions": [
-    {
-      "title": "Low-Cost Mechanical / Passive Option",
-      "type": "Mechanical / Passive",
-      "description": "Engineering description with local materials",
-      "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"]
-    },
-    {
-      "title": "Automated Hybrid Solar / Electric Option",
-      "type": "Hybrid Solar / Electric",
-      "description": "Recommended robust engineering implementation",
-      "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"]
-    },
-    {
-      "title": "Smart Telemetry IoT / Advanced Control Option",
-      "type": "Smart IoT & Telemetry",
-      "description": "Advanced microcontroller and remote sensor architecture",
-      "pros": ["Pro 1", "Pro 2"],
-      "cons": ["Con 1", "Con 2"]
-    }
-  ],
-  "selectedSolutionTitle": "Automated Hybrid Solar / Electric Option",
-  "governingFormulas": "**Governing System Equations**\\n\\n$$P = \\\\rho g Q H$$\\n\\nWhere $P$ is hydraulic power (W), $\\\\rho$ is fluid density ($1000\\\\text{ kg/m}^3$), $g$ is gravity ($9.81\\\\text{ m/s}^2$), $Q$ is flow rate ($m^3/s$), and $H$ is total dynamic head (m).",
-  "sampleCalculations": "**Worked Sizing Calculation:**\\n\\nFor total dynamic head $H = 25\\\\text{ m}$ and flow requirement $Q = 0.0012\\\\text{ m}^3/s$ (72 L/min):\\n\\n$$P_{hyd} = 1000 \\\\times 9.81 \\\\times 0.0012 \\\\times 25 = 294.3\\\\text{ W}$$\\n\\nAccounting for pump wire-to-water efficiency $\\\\eta = 0.65$:\\n\\n$$P_{elec} = \\\\frac{294.3}{0.65} = 452.8\\\\text{ W}$$\\n\\nSelecting a standard 0.5 HP (375W continuous / 550W peak) DC solar pump with $2 \\\\times 350\\\\text{W}$ monocrystalline panels wired in series.",
-  "bemeEstimate": [
-    {
-      "item": "Monocrystalline Solar PV Modules (350W Tier-1)",
-      "quantity": "2 units",
-      "unitRateNaira": 75000,
-      "totalNaira": 150000,
-      "localSource": "Alaba International Market, Lagos"
-    },
-    {
-      "item": "Helical Submersible Solar Borehole Pump (24V DC, 550W)",
-      "quantity": "1 unit",
-      "unitRateNaira": 95000,
-      "totalNaira": 95000,
-      "localSource": "Ladipo / Central Market Plumbing Stores"
-    },
-    {
-      "item": "MPPT Pump Controller with Dry-Run Sensor",
-      "quantity": "1 unit",
-      "unitRateNaira": 45000,
-      "totalNaira": 45000,
-      "localSource": "Local Solar Equipment Distributor"
-    },
-    {
-      "item": "High-Pressure PN10 PPR/PVC Pipes & Brass Non-Return Check Valve",
-      "quantity": "1 lot",
-      "unitRateNaira": 35000,
-      "totalNaira": 35000,
-      "localSource": "Local Hardware & Building Materials Market"
-    }
-  ],
-  "totalEstimatedCostNaira": 325000,
-  "safetyAlerts": [
-    "Always isolate DC high-voltage solar disconnect breakers before touching pump motor terminals.",
-    "Install a dedicated copper earthing rod (depth >= 2.4m) with ground resistance < 5 Ohms to protect against lightning surges.",
-    "Ensure non-return check valve is installed right above pump discharge to prevent water-hammer damage to impeller and pipe joints."
-  ],
-  "feasibility": {
-    "costScore": 82,
-    "difficultyScore": 85,
-    "impactScore": 94,
-    "sustainability": 88,
-    "overallScore": 87
-  },
-  "buildPlanSteps": [
-    "Phase 1: Hydrological head and daily flow audit at community site.",
-    "Phase 2: Local procurement of pump, PV panels, and structural angle iron at regional market.",
-    "Phase 3: Structural mounting frame fabrication, anti-rust zinc-chromate primer, and orientation at 8° South.",
-    "Phase 4: Piping installation with safety check-valves and submersible drop-cable splicing.",
-    "Phase 5: MPPT controller electrical termination, earthing rod grounding, and dry-run float switch calibration.",
-    "Phase 6: Flow commissioning test, water quality check, and community caretaker maintenance training."
-  ]
-}
-`;
+      const prompt = `Problem: ${safeTitle}
+Region: ${safeRegion} | Field: ${safeField}
+Context: ${safeContext}
+Constraints: ${safeConstraints}
+Keep every field concise and technical (under 2-3 sentences per field) so JSON completes quickly.
+
+Return STRICT valid JSON (no markdown fences) with these exact keys:
+- "problemTitle": string
+- "location": string
+- "breakdown": string (2-3 crisp sentences on failure mechanism and engineering spec)
+- "rootCauses": array of 3 short bullet strings
+- "solutionOptions": array of 3 objects { "title", "type", "description" (1-2 sentences), "pros": [2 short items], "cons": [2 short items] }
+- "selectedSolutionTitle": string
+- "governingFormulas": string (2-3 LaTeX $$...$$ equations with brief variable definitions)
+- "sampleCalculations": string (concise 3-line numerical sizing calculation with SI units)
+- "bemeEstimate": array of 3 objects { "item", "quantity", "unitRateNaira": number, "totalNaira": number, "localSource" } with realistic Naira prices
+- "totalEstimatedCostNaira": number
+- "safetyAlerts": array of 3 concise PPE/COREN safety warnings
+- "feasibility": { "costScore": 1-100, "difficultyScore": 1-100, "impactScore": 1-100, "sustainability": 1-100, "overallScore": 1-100 }
+- "buildPlanSteps": array of 5 short build phases`;
 
       const response = await callGemini(ai, {
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_PROMPTS.problemLab,
           responseMimeType: 'application/json',
-          temperature: 0.4,
+          maxOutputTokens: 1150,
+          temperature: 0.35,
         },
       });
 
@@ -968,7 +964,8 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
         config: {
           systemInstruction: SYSTEM_PROMPTS.portfolio,
           responseMimeType: 'application/json',
-          temperature: 0.4,
+          maxOutputTokens: 1200,
+          temperature: 0.35,
         },
       });
 
@@ -994,18 +991,22 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
       const {
         message = '',
         userMessage = '',
+        question = '',
+        prompt = '',
         history = [],
         style = 'step_by_step',
+        answerStyle = '',
         context = {},
         attachment = null,
       } = body;
 
-      const userText = message || userMessage || '';
+      const userText = message || userMessage || question || prompt || '';
+      const resolvedStyle = answerStyle || style || 'step_by_step';
       const { department = 'General Engineering', level = '300L', courses = [] } = context;
 
       // Build structured prompt with personalization and requested answer style
       let promptInstruction = `Student Profile: ${department} (${level})${courses.length ? `, Enrolled: ${courses.join(', ')}` : ''}\n`;
-      promptInstruction += `Requested Answer Style: "${style}" (strictly format output according to this style)\n`;
+      promptInstruction += `Requested Answer Style: "${resolvedStyle}" (strictly format output according to this style)\n`;
 
       if (lowDataMode) {
         promptInstruction += `[LOW DATA MODE ACTIVE: Keep response compact and concise.]\n`;
@@ -1049,12 +1050,11 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
         parts: currentParts
       });
 
-      // Call Gemini with Google Search grounding enabled
+      // Call fast Gemini directly (no slow grounding overhead that exceeds Netlify 10s timeout)
       const response = await callGemini(ai, {
         contents,
         config: {
           systemInstruction: SYSTEM_PROMPTS.ask,
-          tools: [{ googleSearch: {} }],
           temperature: 0.45,
         },
       });
@@ -1257,14 +1257,23 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
     };
   } catch (err) {
     // Log the real internal error to Netlify function logs for debugging
-    console.error('Netlify AI Gateway Error:', err?.message || err);
+    const rawMsg = String(err?.message || err || 'Unknown error');
+    console.error('Netlify AI Gateway Error:', rawMsg);
 
-    // Return friendly, safe JSON error without leaking keys or stack traces
+    let safeMsg = "The tutor didn't respond. Check your connection and try again.";
+    if (/API key not valid|API_KEY_INVALID|invalid api key/i.test(rawMsg)) {
+      safeMsg = "Your GEMINI_API_KEY in Netlify environment variables appears invalid. Please verify it in Netlify Site Settings.";
+    } else if (/quota|429|RESOURCE_EXHAUSTED/i.test(rawMsg)) {
+      safeMsg = "AI request quota temporarily reached. Please wait 30 seconds and try again.";
+    } else if (/timed out/i.test(rawMsg)) {
+      safeMsg = "The request took too long on the server. Try a shorter question or enable Low-Data mode.";
+    }
+
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: "The tutor didn't respond. Check your connection and try again.",
+        error: safeMsg,
       }),
     };
   }
@@ -1280,5 +1289,3 @@ Produce a formal, publication-ready Engineering Dossier Case Study formatted as 
   return result;
 }
 
-// Export default for environments supporting modern standard handler
-export default handler;

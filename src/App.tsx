@@ -17,12 +17,14 @@ import { AskAssistant } from './components/modules/AskAssistant';
 import { ProjectsHub } from './components/modules/ProjectsHub';
 import { MeHub } from './components/modules/MeHub';
 import { HelpContact } from './components/modules/HelpContact';
+import { CommunityHub } from './components/modules/CommunityHub';
 import { AdminView } from './components/modules/AdminView';
 import { Skeleton } from './components/common/Skeleton';
 import { QuietConfetti } from './utils/personality';
 import { CommunityProblemSolution, NavigationModule } from './types';
 import { HelpCircle, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CrazyEngineeringParticles } from './components/common/CrazyEngineeringParticles';
 
 function AppContent() {
   const { currentUser, userProfile, loading, isAdmin, updateProfileData } = useAuth();
@@ -115,6 +117,9 @@ function AppContent() {
       {/* Short onboarding modal for first-time sign-ins */}
       <OnboardingModal />
 
+      {/* Crazy interactive engineering particles and circuit traces */}
+      <CrazyEngineeringParticles theme={theme} />
+
       {/* Quiet celebratory confetti on CBT completion or milestones */}
       {showConfetti && (
         <QuietConfetti onComplete={() => setShowConfetti(false)} />
@@ -176,7 +181,12 @@ function AppContent() {
               />
             )}
 
-            {/* Core Tab 5: Me (Academic Overview, Settings, Admin) */}
+            {/* Core Tab 5: Community (Peer discussion, projects, design showcases) */}
+            {activeModule === 'community' && (
+              <CommunityHub />
+            )}
+
+            {/* Core Tab 6: Me (Academic Overview, Settings, Admin) */}
             {(activeModule === 'me' || activeModule === 'dashboard' || activeModule === 'settings') && (
               <MeHub
                 currentTheme={theme}

@@ -17,9 +17,7 @@ import {
   Layers,
   ArrowRight,
   BookOpen,
-  Calendar,
-  Award,
-  Sparkles
+  Calendar
 } from 'lucide-react';
 import { getTimeGreeting, FlameIcon } from '../../utils/personality';
 import { motion } from 'motion/react';
@@ -29,16 +27,58 @@ interface ProgressDashboardProps {
 }
 
 export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigateToModule }) => {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, recordDailyActivity } = useAuth();
   const [quizzes, setQuizzes] = useState<CBTQuiz[]>([]);
   const [weakTopics, setWeakTopics] = useState<WeakTopic[]>([]);
+  const [liveStreak, setLiveStreak] = useState<number>(userProfile?.studyStreakDays || 1);
+  const [todaySessions, setTodaySessions] = useState<number>(userProfile?.todaySessionsCount || 0);
+  const [totalSessions, setTotalSessions] = useState<number>(userProfile?.totalStudySessions || 0);
+  const [justCheckedIn, setJustCheckedIn] = useState(false);
+  const [checkInLabel, setCheckInLabel] = useState('+1 Session!');
 
   useEffect(() => {
     if (currentUser) {
+      // Sync daily streak check-in on viewing dashboard without inflating completed session count
+      recordDailyActivity(undefined, undefined, false).catch(console.error);
+
       firestoreService.getCBTQuizzes(currentUser.uid).then(setQuizzes).catch(console.error);
       firestoreService.getWeakTopics(currentUser.uid).then(setWeakTopics).catch(console.error);
+
+      // Real-time listener for streak & profile
+      const unsub = firestoreService.subscribeToUserProfile(currentUser.uid, (profile) => {
+        if (profile?.studyStreakDays) {
+          setLiveStreak(profile.studyStreakDays);
+        }
+        if (typeof profile?.todaySessionsCount === 'number') {
+          setTodaySessions(profile.todaySessionsCount);
+        }
+        if (typeof profile?.totalStudySessions === 'number') {
+          setTotalSessions(profile.totalStudySessions);
+        }
+      });
+      return () => unsub();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (userProfile?.studyStreakDays) {
+      setLiveStreak(userProfile.studyStreakDays);
+    }
+    if (typeof userProfile?.todaySessionsCount === 'number') {
+      setTodaySessions(userProfile.todaySessionsCount);
+    }
+    if (typeof userProfile?.totalStudySessions === 'number') {
+      setTotalSessions(userProfile.totalStudySessions);
+    }
+  }, [userProfile?.studyStreakDays, userProfile?.todaySessionsCount, userProfile?.totalStudySessions]);
+
+  const handleManualCheckIn = async () => {
+    const prevStreak = liveStreak;
+    setJustCheckedIn(true);
+    await recordDailyActivity(undefined, undefined, true);
+    setCheckInLabel((userProfile?.studyStreakDays || liveStreak) > prevStreak ? '+1 Day!' : '+1 Session!');
+    setTimeout(() => setJustCheckedIn(false), 3000);
+  };
 
   const totalQuestions = quizzes.reduce((acc, q) => acc + q.totalQuestions, 0);
   const totalCorrect = quizzes.reduce((acc, q) => acc + q.score, 0);
@@ -83,31 +123,64 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
 
       {/* 4 Study Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Streak */}
+        {/* Streak with Flame Animation & Live Session Counter */}
         <motion.div
-          whileHover={{ y: -3, scale: 1.02 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-[#C67D0A] dark:hover:border-[#E0A844] transition-colors relative overflow-hidden group"
+          whileHover={{ y: -4, scale: 1.03 }}
+          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm hover:border-[#C67D0A] dark:hover:border-[#E0A844] transition-colors relative overflow-hidden group cursor-pointer"
+          onClick={handleManualCheckIn}
+          title="Click to log a study check-in for today"
         >
-          <div className="flex items-center justify-between">
+          {/* Background flame aura */}
+          <motion.div
+            animate={{
+              opacity: [0.15, 0.35, 0.15],
+              scale: [0.95, 1.15, 0.95],
+            }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-gradient-to-tr from-amber-500/20 via-orange-500/20 to-yellow-500/0 pointer-events-none blur-xl"
+          />
+
+          <div className="flex items-center justify-between relative z-10">
             <span className="text-[11px] font-medium uppercase tracking-wider text-[#687D72] dark:text-[#6E8578]">
               Study Streak
             </span>
-            <motion.div
-              animate={{ scale: [1, 1.25, 1], rotate: [-4, 4, -4] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <FlameIcon className="w-4 h-4 text-[#C67D0A] dark:text-[#E0A844]" />
-            </motion.div>
+            <div className="relative">
+              <motion.div
+                animate={{
+                  scale: [1, 1.3, 1],
+                  rotate: [-6, 6, -6],
+                  y: [0, -2, 0]
+                }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <FlameIcon className="w-5 h-5 text-[#C67D0A] dark:text-[#E0A844]" />
+              </motion.div>
+              {justCheckedIn && (
+                <motion.span
+                  initial={{ opacity: 0, y: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, y: -22, scale: 1.05 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute right-0 font-mono text-[11px] font-bold text-[#C67D0A] dark:text-[#E0A844] whitespace-nowrap pointer-events-none"
+                >
+                  {checkInLabel}
+                </motion.span>
+              )}
+            </div>
           </div>
-          <span className="font-mono text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE] mt-2 block">
-            {userProfile?.studyStreakDays || 1} <span className="text-xs font-normal text-[#687D72] dark:text-[#6E8578]">days</span>
-          </span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs text-[#405449] dark:text-[#AEC1B6]">
-              Live synced
+
+          <div className="relative z-10">
+            <span className="font-mono text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE] mt-2 block">
+              {liveStreak} <span className="text-xs font-normal text-[#687D72] dark:text-[#6E8578]">days</span>
             </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-xs text-[#405449] dark:text-[#AEC1B6]">
+                {justCheckedIn
+                  ? 'Study session logged!'
+                  : `${todaySessions} today · ${totalSessions} total`}
+              </span>
+            </div>
           </div>
         </motion.div>
 
@@ -124,7 +197,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({ onNavigate
             <CheckCircle2 className="w-4 h-4 text-[#1B4332] dark:text-[#52B788]" />
           </div>
           <span className="font-mono text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE] mt-2 block">
-            {userProfile?.topicsMastered.length || 4}
+            {userProfile?.topicsMastered.length || 0}
           </span>
           <span className="text-xs text-[#405449] dark:text-[#AEC1B6] mt-0.5 block">
             Derivations mastered

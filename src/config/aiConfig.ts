@@ -7,11 +7,10 @@
  */
 
 // ============================================================================
-// GEMINI MODEL CONFIGURATION
-// Easily switch models here (e.g. 'gemini-3.8-flash', 'gemini-2.5-flash', etc.)
-// or override via the GEMINI_MODEL environment variable in Netlify.
+// SERVER MODEL CONFIGURATION
+// Override via the GEMINI_MODEL environment variable in Netlify if needed.
 // ============================================================================
-export const GEMINI_MODEL = (typeof process !== 'undefined' && process.env?.GEMINI_MODEL) || 'gemini-3.8-flash';
+export const GEMINI_MODEL = (typeof process !== 'undefined' && process.env?.GEMINI_MODEL) || 'gemini-3.1-flash-lite';
 
 // Rate limiting thresholds
 export const RATE_LIMIT_HOURLY = 30;

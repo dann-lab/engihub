@@ -31,7 +31,9 @@ import {
   SupportMessage,
   TutorSession,
   UserProgress,
-  WeakTopic
+  WeakTopic,
+  CommunityPost,
+  PostComment
 } from '../types';
 
 export interface UserProfileData {
@@ -47,10 +49,29 @@ export interface UserProfileData {
   theme: 'light' | 'dark';
   studyStreakDays: number;
   lastActiveDate: string;
+  todaySessionsCount?: number;
+  totalStudySessions?: number;
+  activeStudyDates?: string[];
   topicsMastered: string[];
   skillsEarned: string[];
   createdAt: number;
   updatedAt: number;
+}
+
+export function getLocalDateStr(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalDayDiff(fromYmd: string, toYmd: string): number {
+  const [fy, fm, fd] = fromYmd.split('-').map(Number);
+  const [ty, tm, td] = toYmd.split('-').map(Number);
+  if (!fy || !fm || !fd || !ty || !tm || !td) return 999;
+  const fromUtc = Date.UTC(fy, fm - 1, fd);
+  const toUtc = Date.UTC(ty, tm - 1, td);
+  return Math.round((toUtc - fromUtc) / (1000 * 60 * 60 * 24));
 }
 
 // Seed solutions for the community library if empty
@@ -169,56 +190,81 @@ class FirestoreService {
     }
   }
 
-  async recordStudyStreak(userId: string, topicMastered?: string, skillEarned?: string): Promise<UserProfileData | null> {
-    const path = `users/${userId}`;
+  async recordStudyStreak(
+    userId: string,
+    topicMastered?: string,
+    skillEarned?: string,
+    incrementSession: boolean = true
+  ): Promise<UserProfileData | null> {
     try {
-      const snap = await getDoc(doc(db, 'users', userId));
-      if (!snap.exists()) return null;
-      const current = snap.data() as UserProfileData;
+      const userRef = doc(db, 'users', userId);
+      const snap = await getDoc(userRef);
+      const current = snap.exists() ? (snap.data() as Partial<UserProfileData>) : {};
 
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = getLocalDateStr();
       const lastActive = current.lastActiveDate || '';
-
-      let newStreak = current.studyStreakDays || 1;
+      let currentStreak = Math.max(1, Number(current.studyStreakDays) || 1);
+      let newStreak = currentStreak;
+      let todaySessions = Number(current.todaySessionsCount) || 0;
 
       if (lastActive === todayStr) {
-        // Already logged activity today, maintain current streak
+        newStreak = currentStreak;
+        if (incrementSession) todaySessions += 1;
       } else if (lastActive) {
-        const yesterday = new Date();
-        yesterday.setDate(now.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-        if (lastActive === yesterdayStr) {
-          newStreak = (current.studyStreakDays || 0) + 1;
+        const diffDays = getLocalDayDiff(lastActive, todayStr);
+        if (diffDays === 1) {
+          newStreak = currentStreak + 1;
+        } else if (diffDays < 0) {
+          // Clock/timezone slightly behind UTC date; keep streak
+          newStreak = currentStreak;
         } else {
-          // Break in daily streak
+          // Missed >= 1 full day -> reset to 1
           newStreak = 1;
         }
+        todaySessions = incrementSession ? 1 : Math.max(1, todaySessions);
       } else {
         newStreak = 1;
+        todaySessions = incrementSession ? 1 : 1;
       }
 
-      const topics = current.topicsMastered || [];
+      const totalSessions = (Number(current.totalStudySessions) || 0) + (incrementSession ? 1 : 0);
+
+      const topics = Array.isArray(current.topicsMastered) ? current.topicsMastered : [];
       const updatedTopics = topicMastered && !topics.includes(topicMastered)
         ? [...topics, topicMastered]
         : topics;
 
-      const skills = current.skillsEarned || [];
+      const skills = Array.isArray(current.skillsEarned) ? current.skillsEarned : [];
       const updatedSkills = skillEarned && !skills.includes(skillEarned)
         ? [...skills, skillEarned]
         : skills;
 
+      const recentDates = Array.isArray(current.activeStudyDates) ? current.activeStudyDates : [];
+      const updatedDates = recentDates.includes(todayStr)
+        ? recentDates.slice(-30)
+        : [...recentDates, todayStr].slice(-30);
+
       const updated: Partial<UserProfileData> = {
+        id: current.id || userId,
+        email: current.email || (auth.currentUser?.email || '').toLowerCase(),
         studyStreakDays: newStreak,
         lastActiveDate: todayStr,
+        todaySessionsCount: todaySessions,
+        totalStudySessions: totalSessions,
+        activeStudyDates: updatedDates,
         topicsMastered: updatedTopics,
         skillsEarned: updatedSkills,
         updatedAt: Date.now()
       };
 
-      await updateDoc(doc(db, 'users', userId), updated);
-      return { ...current, ...updated } as UserProfileData;
+      await setDoc(userRef, updated, { merge: true });
+      const merged = { ...current, ...updated } as UserProfileData;
+      try {
+        localStorage.setItem(`engihub_profile_${userId}`, JSON.stringify(merged));
+      } catch {
+        // Ignore quota errors
+      }
+      return merged;
     } catch (err) {
       console.warn('Error recording study streak in Firestore:', err);
       return null;
@@ -764,6 +810,144 @@ class FirestoreService {
     };
     await this.submitSupportMessage(sampleMsg);
     return sampleMsg;
+  }
+
+  // 12. Student Community Hub (Collection: /community_posts)
+  async getCommunityPosts(): Promise<CommunityPost[]> {
+    const path = 'community_posts';
+    try {
+      const snap = await getDocs(collection(db, 'community_posts'));
+      const list = snap.docs.map((d) => d.data() as CommunityPost);
+      return list.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (err) {
+      console.warn('getCommunityPosts fallback to local/benchmark:', err);
+      return [];
+    }
+  }
+
+  subscribeToCommunityPosts(
+    onSuccess: (posts: CommunityPost[]) => void,
+    onError?: (err: any) => void
+  ): () => void {
+    const path = 'community_posts';
+    try {
+      const unsubscribe = onSnapshot(
+        collection(db, 'community_posts'),
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => d.data() as CommunityPost);
+          list.sort((a, b) => b.createdAt - a.createdAt);
+          onSuccess(list);
+        },
+        (error) => {
+          console.warn('Realtime community posts subscription notice:', error);
+          if (onError) onError(error);
+        }
+      );
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeToCommunityPosts failed:', err);
+      if (onError) onError(err);
+      return () => {};
+    }
+  }
+
+  async createCommunityPost(post: CommunityPost): Promise<void> {
+    const path = `community_posts/${post.id}`;
+    try {
+      const sanitized: CommunityPost = {
+        ...post,
+        title: DOMPurify.sanitize(post.title || ''),
+        content: DOMPurify.sanitize(post.content || ''),
+        authorName: DOMPurify.sanitize(post.authorName || 'Engineering Student'),
+        authorUniversity: DOMPurify.sanitize(post.authorUniversity || 'Nigerian University'),
+        authorDepartment: DOMPurify.sanitize(post.authorDepartment || 'Engineering'),
+        updatedAt: Date.now(),
+      };
+      await setDoc(doc(db, 'community_posts', post.id), sanitized);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
+  }
+
+  async togglePostUpvote(postId: string, userId: string): Promise<{ upvotesCount: number; upvotedBy: string[] }> {
+    const path = `community_posts/${postId}`;
+    try {
+      const ref = doc(db, 'community_posts', postId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        return { upvotesCount: 0, upvotedBy: [] };
+      }
+      const data = snap.data() as CommunityPost;
+      const upvotedBy = data.upvotedBy || [];
+      const hasUpvoted = upvotedBy.includes(userId);
+
+      const newUpvotedBy = hasUpvoted
+        ? upvotedBy.filter((id) => id !== userId)
+        : [...upvotedBy, userId];
+      const newCount = newUpvotedBy.length;
+
+      await updateDoc(ref, {
+        upvotesCount: newCount,
+        upvotedBy: newUpvotedBy,
+        updatedAt: Date.now(),
+      });
+      return { upvotesCount: newCount, upvotedBy: newUpvotedBy };
+    } catch (err) {
+      console.warn('togglePostUpvote notice:', err);
+      return { upvotesCount: 0, upvotedBy: [] };
+    }
+  }
+
+  async deleteCommunityPost(postId: string): Promise<void> {
+    const path = `community_posts/${postId}`;
+    try {
+      await deleteDoc(doc(db, 'community_posts', postId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  }
+
+  async getPostComments(postId: string): Promise<PostComment[]> {
+    const path = `community_posts/${postId}/comments`;
+    try {
+      const snap = await getDocs(collection(db, 'community_posts', postId, 'comments'));
+      const list = snap.docs.map((d) => d.data() as PostComment);
+      return list.sort((a, b) => a.createdAt - b.createdAt);
+    } catch (err) {
+      console.warn('getPostComments notice:', err);
+      return [];
+    }
+  }
+
+  async addPostComment(postId: string, comment: PostComment): Promise<void> {
+    const path = `community_posts/${postId}/comments/${comment.id}`;
+    try {
+      const sanitized: PostComment = {
+        ...comment,
+        content: DOMPurify.sanitize(comment.content || ''),
+        authorName: DOMPurify.sanitize(comment.authorName || 'Engineering Student'),
+        authorUniversity: DOMPurify.sanitize(comment.authorUniversity || 'Nigerian University'),
+        authorDepartment: DOMPurify.sanitize(comment.authorDepartment || 'Engineering'),
+      };
+      await setDoc(doc(db, 'community_posts', postId, 'comments', comment.id), sanitized);
+
+      // Increment commentsCount on parent post
+      try {
+        const postRef = doc(db, 'community_posts', postId);
+        const postSnap = await getDoc(postRef);
+        if (postSnap.exists()) {
+          const currentCount = (postSnap.data() as CommunityPost).commentsCount || 0;
+          await updateDoc(postRef, {
+            commentsCount: currentCount + 1,
+            updatedAt: Date.now(),
+          });
+        }
+      } catch (e) {
+        console.warn('Comment counter update notice:', e);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+    }
   }
 }
 

@@ -21,8 +21,7 @@ import {
   Award,
   BookOpen,
   Trash2,
-  AlertCircle,
-  Sparkles
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -98,7 +97,7 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
       }
     } catch (err: any) {
       console.error('Portfolio generation error:', err);
-      setError(FALLBACK_AI_ERROR);
+      setError(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsGenerating(false);
     }
@@ -182,7 +181,7 @@ export const PortfolioBuilder: React.FC<PortfolioBuilderProps> = ({ incomingProb
               disabled={isGenerating || !chosenSolutionId}
               className="px-4 py-2 rounded-[3px] bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-semibold tracking-wide disabled:opacity-50 transition-colors shadow-md shadow-[#EA580C]/20 flex items-center gap-1.5"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <FileCheck className="w-3.5 h-3.5" />
               <span>{isGenerating ? 'Compiling Dossier...' : 'Generate Case Study'}</span>
             </motion.button>
           </div>

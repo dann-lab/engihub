@@ -49,6 +49,50 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Restore active document session from sessionStorage so switching tabs never loses scanned notes
+  useEffect(() => {
+    try {
+      const savedSession = sessionStorage.getItem('engihub_active_note_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed.selectedImage) setSelectedImage(parsed.selectedImage);
+        if (parsed.imageMime) setImageMime(parsed.imageMime);
+        if (parsed.fileName) setFileName(parsed.fileName);
+        if (parsed.activeAction) setActiveAction(parsed.activeAction);
+        if (parsed.cachedModes) setCachedModes(parsed.cachedModes);
+        if (parsed.analysisText) setAnalysisText(parsed.analysisText);
+      }
+    } catch (e) {
+      console.warn('Session restore error:', e);
+    }
+  }, []);
+
+  // Sync active document session to sessionStorage
+  const persistSession = (
+    image: string | null,
+    mime: string,
+    name: string,
+    action: NoteAnalysisMode,
+    modes: Partial<Record<NoteAnalysisMode, string>>,
+    text: string
+  ) => {
+    try {
+      sessionStorage.setItem(
+        'engihub_active_note_session',
+        JSON.stringify({
+          selectedImage: image,
+          imageMime: mime,
+          fileName: name,
+          activeAction: action,
+          cachedModes: modes,
+          analysisText: text,
+        })
+      );
+    } catch (e) {
+      console.warn('Session persist notice:', e);
+    }
+  };
+
   useEffect(() => {
     if (currentUser) {
       firestoreService.getScannedNotes(currentUser.uid).then(setSavedNotes).catch(console.error);
@@ -74,6 +118,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       const compressed = await compressImage(file, 1600, 0.82);
       setSelectedImage(compressed.dataUrl);
       setImageMime('image/jpeg');
+      persistSession(compressed.dataUrl, 'image/jpeg', file.name, activeAction, {}, '');
     } catch (err) {
       console.warn('Canvas compression fallback to FileReader:', err);
       const reader = new FileReader();
@@ -81,6 +126,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
         const dataUrl = event.target?.result as string;
         setSelectedImage(dataUrl);
         setImageMime(file.type || 'image/jpeg');
+        persistSession(dataUrl, file.type || 'image/jpeg', file.name, activeAction, {}, '');
       };
       reader.readAsDataURL(file);
     }
@@ -90,9 +136,11 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
     setError('');
     setFileName('sample_thermodynamics_notes.jpg');
     setImageMime('image/jpeg');
-    setSelectedImage(`data:image/jpeg;base64,${SAMPLE_IMAGE_BASE64}`);
+    const sampleUrl = `data:image/jpeg;base64,${SAMPLE_IMAGE_BASE64}`;
+    setSelectedImage(sampleUrl);
     setCachedModes({});
     setAnalysisText('');
+    persistSession(sampleUrl, 'image/jpeg', 'sample_thermodynamics_notes.jpg', activeAction, {}, '');
   };
 
   const handleSelectMode = async (mode: NoteAnalysisMode) => {
@@ -101,11 +149,13 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
     // If this mode was already generated for this note, load it immediately with zero network delay!
     if (cachedModes[mode]) {
-      setAnalysisText(cachedModes[mode]!);
+      const cachedContent = cachedModes[mode]!;
+      setAnalysisText(cachedContent);
+      persistSession(selectedImage, imageMime, fileName, mode, cachedModes, cachedContent);
       return;
     }
 
-    // Otherwise trigger analysis for this mode
+    // Otherwise trigger analysis for this mode WITHOUT clearing the current view
     await handleRunAnalysis(mode);
   };
 
@@ -118,10 +168,10 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
     setActiveAction(mode);
     setIsAnalyzing(true);
     setError('');
-    setAnalysisText('');
 
     try {
       const base64Data = selectedImage.split(',')[1] || selectedImage;
+      const transcriptionContext = cachedModes['transcribe'] || '';
 
       const data = await callNetlifyAI<{ text?: string; reply?: string }>({
         module: 'scanner',
@@ -129,7 +179,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
         imageBase64: base64Data,
         imageMimeType: imageMime,
         fileName: fileName || 'Uploaded Note',
-        notesContext: cachedModes['transcribe'] || ''
+        notesContext: transcriptionContext
       });
 
       const fullResult = data.text || data.reply || '';
@@ -139,7 +189,9 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
 
       setAnalysisText(fullResult);
       // Cache the result for this mode
-      setCachedModes((prev) => ({ ...prev, [mode]: fullResult }));
+      const updatedModes = { ...cachedModes, [mode]: fullResult };
+      setCachedModes(updatedModes);
+      persistSession(selectedImage, imageMime, fileName, mode, updatedModes, fullResult);
 
       const record: ScannedNoteRecord = {
         id: `note_${Date.now()}`,
@@ -158,7 +210,7 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
       recordDailyActivity().catch(console.error);
     } catch (err: any) {
       console.error('Note Scanner error:', err);
-      setError(FALLBACK_AI_ERROR);
+      setError(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsAnalyzing(false);
     }
@@ -283,6 +335,11 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
                     setSelectedImage(null);
                     setAnalysisText('');
                     setCachedModes({});
+                    try {
+                      sessionStorage.removeItem('engihub_active_note_session');
+                    } catch (e) {
+                      console.warn(e);
+                    }
                   }}
                   className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-xs font-semibold text-red-700 dark:text-red-300"
                 >
@@ -390,7 +447,21 @@ export const NoteScanner: React.FC<NoteScannerProps> = ({ onLaunchCBTWithNotes }
               <Skeleton lines={5} />
             </div>
           ) : (
-            <MarkdownView content={analysisText} />
+            <div className="space-y-3">
+              {isAnalyzing && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2 font-mono"
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#C67D0A] animate-ping" />
+                  <span>
+                    Loading {activeAction === 'summary' ? 'Revision Summary' : activeAction === 'explain' ? 'Principle Explanation' : activeAction === 'solve_assignment' ? 'Step-by-step Solution' : 'Transcription'}...
+                  </span>
+                </motion.div>
+              )}
+              <MarkdownView content={analysisText} />
+            </div>
           )}
         </div>
       )}

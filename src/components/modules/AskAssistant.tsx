@@ -42,8 +42,7 @@ import {
   BookOpen,
   AlertTriangle,
   X,
-  Image as ImageIcon,
-  Sparkles
+  Image as ImageIcon
 } from 'lucide-react';
 import { compressImage } from '../../utils/imageCompressor';
 import { motion, AnimatePresence } from 'motion/react';
@@ -334,7 +333,7 @@ export const AskAssistant: React.FC<AskAssistantProps> = ({ onLaunchCBTWithNotes
       );
     } catch (err: any) {
       console.error('Ask invocation error:', err);
-      setError(FALLBACK_AI_ERROR);
+      setError(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsLoading(false);
     }

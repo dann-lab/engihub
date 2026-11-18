@@ -101,6 +101,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
   const [userNumericAnswer, setUserNumericAnswer] = useState<string>('');
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [simplerExplaining, setSimplerExplaining] = useState(false);
+  const [streakCombo, setStreakCombo] = useState(0);
 
   // Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -163,24 +164,39 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
     }
 
     try {
-      const data = await callNetlifyAI<{ questions: any[] }>({
-        module: 'cbt',
-        topic: targetTopic,
-        course: selectedCourse,
-        difficulty,
-        questionCount: targetMode === 'quick_10' ? 10 : questionCount,
-        mode: targetMode,
-        notesContent: sourceType === 'uploaded_note' ? pastedNotes : '',
-        pastQuestionStyle: sourceType === 'past_question' ? pastQuestionStyle : '',
-        lowDataMode: Boolean(userProfile?.lowDataMode)
-      });
+      const requestedTotal = targetMode === 'quick_10' ? 10 : questionCount;
+      const batchSizes: number[] = [];
+      let remaining = requestedTotal;
+      while (remaining > 0) {
+        const chunk = Math.min(remaining, 5);
+        batchSizes.push(chunk);
+        remaining -= chunk;
+      }
 
-      if (!data.questions || data.questions.length === 0) {
+      const batchResults = await Promise.all(
+        batchSizes.map((count) =>
+          callNetlifyAI<{ questions: any[] }>({
+            module: 'cbt',
+            topic: targetTopic,
+            course: selectedCourse,
+            difficulty,
+            questionCount: count,
+            mode: targetMode,
+            notesContent: sourceType === 'uploaded_note' ? pastedNotes : '',
+            pastQuestionStyle: sourceType === 'past_question' ? pastQuestionStyle : '',
+            lowDataMode: Boolean(userProfile?.lowDataMode)
+          })
+        )
+      );
+
+      const rawQuestions = batchResults.flatMap((res) => res?.questions || []);
+
+      if (rawQuestions.length === 0) {
         throw new Error(FALLBACK_AI_ERROR);
       }
 
-      let questions: CBTQuestion[] = data.questions.map((q, idx) => ({
-        id: q.id || `q_${Date.now()}_${idx}`,
+      let questions: CBTQuestion[] = rawQuestions.map((q, idx) => ({
+        id: `q_${Date.now()}_${idx}`,
         type: (q.type as QuestionType) || 'multiple_choice',
         question: q.question || q.questionText || '',
         options: q.options || [],
@@ -205,7 +221,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
       startQuizSession(questions, targetTopic, targetMode);
     } catch (err: any) {
       console.error('Quiz generation error:', err);
-      setError(FALLBACK_AI_ERROR);
+      setError(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsLoading(false);
     }
@@ -289,6 +305,11 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
 
     setActiveQuiz(updatedQuiz);
     setIsAnswerSubmitted(true);
+    if (isCorrect) {
+      setStreakCombo((prev) => prev + 1);
+    } else {
+      setStreakCombo(0);
+    }
 
     // Save weak topic & schedule spaced repetition
     await firestoreService.recordSpacedRepetitionQuestion(currentUser.uid, currentQ, isCorrect);
@@ -725,18 +746,38 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
         /* ====================================================================
            RESULTS SCREEN
            ==================================================================== */
-        <div className="space-y-6">
-          <div className="p-8 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-md text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-[#1B4332]/10 dark:bg-[#E0A844]/15 text-[#1B4332] dark:text-[#E0A844] flex items-center justify-center mx-auto mb-1">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-6"
+        >
+          <div className="p-8 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-md text-center space-y-3 relative overflow-hidden">
+            {/* Glowing celebratory background gradient */}
+            <motion.div
+              animate={{ opacity: [0.2, 0.45, 0.2], scale: [0.95, 1.1, 0.95] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              className="absolute -top-12 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gradient-to-b from-[#C67D0A]/20 via-[#1B4332]/15 to-transparent blur-2xl pointer-events-none"
+            />
 
-            <h2 className="font-serif text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE]">
+            <motion.div
+              initial={{ scale: 0, rotate: -30 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 350, damping: 15, delay: 0.15 }}
+              className="w-16 h-16 rounded-full bg-[#1B4332]/10 dark:bg-[#E0A844]/15 text-[#1B4332] dark:text-[#E0A844] flex items-center justify-center mx-auto mb-1 relative z-10 shadow-inner"
+            >
+              <CheckCircle2 className="w-8 h-8" />
+            </motion.div>
+
+            <h2 className="font-serif text-2xl font-bold text-[#142E22] dark:text-[#F6F3EE] relative z-10">
               Assessment Complete
             </h2>
 
-            <div className="max-w-md mx-auto grid grid-cols-3 gap-3 py-3">
-              <div className="p-3.5 rounded-xl bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436]">
+            <div className="max-w-md mx-auto grid grid-cols-3 gap-3 py-3 relative z-10">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="p-3.5 rounded-xl bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436]"
+              >
                 <span className="text-[10px] uppercase font-semibold text-[#687D72] dark:text-[#6E8578] block">
                   Final Score
                 </span>
@@ -746,7 +787,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
                 <span className="text-[11px] font-mono text-[#687D72] dark:text-[#6E8578]">
                   {Math.round((activeQuiz.score / activeQuiz.totalQuestions) * 100)}%
                 </span>
-              </div>
+              </motion.div>
 
               <div className="p-3.5 rounded-xl bg-[#FAF6EE] dark:bg-[#11221B] border border-[#E8E1D3] dark:border-[#234436]">
                 <span className="text-[10px] uppercase font-semibold text-[#687D72] dark:text-[#6E8578] block">
@@ -840,7 +881,7 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
       ) : (
         /* ====================================================================
            ACTIVE QUIZ QUESTION VIEW
@@ -855,14 +896,24 @@ export const CBTEngine: React.FC<CBTEngineProps> = ({
           >
             {/* Progress Bar & Actions */}
             <div className="p-4 rounded-xl border bg-white dark:bg-[#162C23] border-[#E8E1D3] dark:border-[#234436] paper-shadow-sm flex items-center justify-between gap-3">
-              <div>
+              <div className="flex items-center gap-2">
                 <span className="text-xs font-mono font-bold text-[#C67D0A] dark:text-[#E0A844]">
                   Question {currentIdx + 1} of {activeQuiz.totalQuestions}
                 </span>
-                <span className="text-[#687D72] dark:text-[#6E8578] mx-2">·</span>
+                <span className="text-[#687D72] dark:text-[#6E8578]">·</span>
                 <span className="text-xs text-[#687D72] dark:text-[#AEC1B6] capitalize">
                   {currentQ.type.replace('_', ' ')}
                 </span>
+                {streakCombo >= 2 && (
+                  <motion.div
+                    initial={{ scale: 0.6, rotate: -10 }}
+                    animate={{ scale: [1, 1.15, 1], rotate: [-4, 4, -4] }}
+                    transition={{ repeat: Infinity, duration: 1.2 }}
+                    className="ml-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-mono text-[10px] font-bold shadow-xs"
+                  >
+                    🔥 {streakCombo}X STREAK!
+                  </motion.div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">

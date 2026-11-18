@@ -12,9 +12,9 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Proxy /api requests to netlify function if called directly
+# Proxy /api requests to Netlify AI function
 [[redirects]]
-  from = "/api/admin/stats"
+  from = "/api/*"
   to = "/.netlify/functions/ai"
   status = 200
 
@@ -23,4 +23,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-

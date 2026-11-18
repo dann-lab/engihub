@@ -8,6 +8,7 @@ export type NavigationModule =
   | 'practice' 
   | 'ask' 
   | 'projects' 
+  | 'community'
   | 'me' 
   | 'help'
   | 'tutor' 
@@ -267,3 +268,43 @@ export interface SupportMessage {
   adminReply?: string;
   repliedAt?: number;
 }
+
+export type CommunityCategory = 
+  | 'SWEP & SIWES Projects'
+  | 'Past Questions & Solved Derivations'
+  | 'Hardware, IoT & Tech Hacks'
+  | 'Course Advice & Exam Tips'
+  | 'Campus Engineering Gist';
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorUniversity: string;
+  authorDepartment: string;
+  authorLevel: string;
+  content: string;
+  createdAt: number;
+}
+
+export interface CommunityPost {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorEmail: string;
+  authorUniversity: string;
+  authorDepartment: string;
+  authorLevel: string;
+  title: string;
+  category: CommunityCategory;
+  content: string;
+  tags: string[];
+  imageUrl?: string;
+  upvotesCount: number;
+  upvotedBy: string[];
+  commentsCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+

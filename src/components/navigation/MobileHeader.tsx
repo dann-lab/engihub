@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { NavigationModule } from '../../types';
 import { Sun, Moon, HelpCircle } from 'lucide-react';
 import { getTimeGreeting, FlameIcon } from '../../utils/personality';
+import { EngiHubLogo } from '../common/EngiHubLogo';
 
 interface MobileHeaderProps {
   currentTheme: 'light' | 'dark';
@@ -44,10 +45,11 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           className="cursor-pointer"
         >
           <div className="flex items-center gap-2">
+            <EngiHubLogo size="sm" />
             <span className="font-serif text-lg font-bold tracking-tight">
               Engi<span className={isLight ? 'text-[#C67D0A]' : 'text-[#E0A844]'}>Hub</span>
             </span>
-            <span className={`text-[11px] truncate max-w-[140px] ${
+            <span className={`text-[11px] truncate max-w-[120px] ${
               isLight ? 'text-[#405449]' : 'text-[#AEC1B6]'
             }`}>
               {greeting}
@@ -58,8 +60,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         {/* Right side controls */}
         <div className="flex items-center gap-1.5">
           {/* Study Streak */}
-          <div
-            title={`${userProfile?.studyStreakDays || 1} day study streak`}
+          <button
+            onClick={() => onSelectModule('me')}
+            title={`${userProfile?.studyStreakDays || 1} day study streak · ${userProfile?.todaySessionsCount || 0} sessions today`}
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono font-semibold ${
               isLight
                 ? 'bg-[#FDF4E5] border border-[#E8D4B0] text-[#A86604]'
@@ -68,7 +71,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           >
             <FlameIcon className={`w-3.5 h-3.5 ${isLight ? 'text-[#C67D0A]' : 'text-[#E0A844]'}`} />
             <span>{userProfile?.studyStreakDays || 1}d</span>
-          </div>
+          </button>
 
           {/* Quick Help */}
           <button

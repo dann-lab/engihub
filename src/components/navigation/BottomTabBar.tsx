@@ -14,6 +14,7 @@ import {
   CheckSquare,
   MessageSquare,
   Wrench,
+  Users,
   User
 } from 'lucide-react';
 
@@ -35,6 +36,7 @@ const TABS: TabDef[] = [
   { id: 'practice', label: 'Practice', icon: CheckSquare, aliases: ['practice', 'cbt'] },
   { id: 'ask', label: 'Ask', icon: MessageSquare, aliases: ['ask'] },
   { id: 'projects', label: 'Projects', icon: Wrench, aliases: ['projects', 'problem-lab', 'portfolio'] },
+  { id: 'community', label: 'Community', icon: Users, aliases: ['community'] },
   { id: 'me', label: 'Me', icon: User, aliases: ['me', 'dashboard', 'settings', 'admin', 'help'] }
 ];
 
@@ -55,7 +57,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       }`}
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 6px)' }}
     >
-      <div className="grid grid-cols-5 h-14 max-w-lg mx-auto">
+      <div className="grid grid-cols-6 h-14 max-w-lg mx-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.aliases.includes(activeModule);

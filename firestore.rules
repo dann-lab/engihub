@@ -17,11 +17,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'danielolorunlana59@gmail.com' ||
-        request.auth.token.email == 'dannistec3@gmail.com' ||
-        (request.auth.token.keys().hasAll(['email']) && request.auth.token.email.matches('(?i)^(danielolorunlana59@gmail\\.com|dannistec3@gmail\\.com)$'))
-      );
+      return isSignedIn()
+        && ('email' in request.auth.token)
+        && request.auth.token.email is string
+        && (
+          request.auth.token.email == 'danielolorunlana59@gmail.com' ||
+          request.auth.token.email == 'dannistec3@gmail.com' ||
+          request.auth.token.email.matches('(?i)^(danielolorunlana59@gmail\\.com|dannistec3@gmail\\.com)$')
+        );
     }
 
     function isValidId(id) {
@@ -42,12 +45,16 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isOwner(userId)
                     && isValidId(userId)
-                    && incoming().id == userId
+                    && (!('id' in incoming()) || incoming().id == userId)
                     && incoming().email is string
                     && incoming().email.size() <= 200;
       allow update: if isOwner(userId)
-                    && incoming().id == userId
-                    && incoming().email == existing().email;
+                    && (!('id' in incoming()) || incoming().id == userId)
+                    && (
+                      !('email' in existing()) ||
+                      existing().email == '' ||
+                      incoming().email.lower() == existing().email.lower()
+                    );
       allow delete: if isOwner(userId) || isAdmin();
 
       // Private User Subcollections
@@ -79,6 +86,10 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      match /portfolio/{studyId} {
+        allow read, write: if isOwner(userId);
+      }
+
       match /portfolio_studies/{studyId} {
         allow read, write: if isOwner(userId);
       }
@@ -86,30 +97,51 @@ service cloud.firestore {
 
     // 2. Public Solutions Library
     match /solutions_library/{solutionId} {
-      // Readable by any authenticated user; hidden if reportCount >= 3 unless admin or author
       allow read: if isSignedIn();
 
-      // Only authenticated users can publish; authorId must match auth.uid
       allow create: if isSignedIn()
                     && isValidId(solutionId)
                     && incoming().authorId == request.auth.uid
                     && incoming().problemTitle is string
                     && incoming().problemTitle.size() <= 300;
 
-      // Author can update full content; other users can toggle upvote or report
       allow update: if isSignedIn();
 
-      // Only author or admin can delete
       allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
     }
 
     // 3. Contact & Support Messages
     match /messages/{messageId} {
-      allow create: if isSignedIn();
-      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && isValidId(messageId)
+                    && incoming().userId == request.auth.uid;
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // 4. Engineering Student Community Posts & Interactive Discussions
+    match /community_posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && isValidId(postId)
+                    && incoming().authorId == request.auth.uid
+                    && incoming().title is string
+                    && incoming().title.size() <= 300;
+      allow update: if isSignedIn();
+      allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && isValidId(commentId)
+                      && incoming().authorId == request.auth.uid
+                      && incoming().content is string
+                      && incoming().content.size() <= 2000;
+        allow update: if isSignedIn() && existing().authorId == request.auth.uid;
+        allow delete: if (isSignedIn() && existing().authorId == request.auth.uid) || isAdmin();
+      }
     }
   }
 }

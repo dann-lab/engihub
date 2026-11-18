@@ -2,7 +2,7 @@
   "entities": {
     "UserProfile": {
       "title": "UserProfile",
-      "description": "User profile, academic info, and preferences",
+      "description": "User profile, academic info, study streak tracking, and preferences",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -17,6 +17,11 @@
         "theme": { "type": "string" },
         "studyStreakDays": { "type": "number" },
         "lastActiveDate": { "type": "string" },
+        "todaySessionsCount": { "type": "number" },
+        "totalStudySessions": { "type": "number" },
+        "activeStudyDates": { "type": "array" },
+        "topicsMastered": { "type": "array" },
+        "skillsEarned": { "type": "array" },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },
@@ -142,6 +147,67 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["id", "authorId", "problemTitle", "selectedSolutionTitle"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "Student support requests and admin replies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "category": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string" },
+        "adminReply": { "type": "string" },
+        "repliedAt": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "subject", "message"]
+    },
+    "CommunityPost": {
+      "title": "CommunityPost",
+      "description": "Student forum discussion post or engineering build showcase",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorUniversity": { "type": "string" },
+        "authorDepartment": { "type": "string" },
+        "authorLevel": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array" },
+        "imageUrl": { "type": "string" },
+        "upvotesCount": { "type": "number" },
+        "upvotedBy": { "type": "array" },
+        "commentsCount": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "authorId", "title", "content"]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Student comment reply on a community post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUniversity": { "type": "string" },
+        "authorDepartment": { "type": "string" },
+        "authorLevel": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "postId", "authorId", "content"]
     }
   },
   "firestore": {
@@ -172,6 +238,18 @@
     "/solutions_library/{solutionId}": {
       "schema": "CommunitySolution",
       "description": "Public community engineering solutions library"
+    },
+    "/messages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Student support messages and admin responses"
+    },
+    "/community_posts/{postId}": {
+      "schema": "CommunityPost",
+      "description": "Public student community posts"
+    },
+    "/community_posts/{postId}/comments/{commentId}": {
+      "schema": "PostComment",
+      "description": "Public comments on community posts"
     }
   }
 }

@@ -29,7 +29,6 @@ import {
   Search,
   Filter,
   Trash2,
-  Sparkles,
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -154,7 +153,7 @@ const TEMPLATE_CHALLENGES = [
 ];
 
 export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => {
-  const { currentUser, userProfile, updateProfileData, isAdmin } = useAuth();
+  const { currentUser, userProfile, updateProfileData, recordDailyActivity, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'solver' | 'library'>('solver');
 
   // Input states
@@ -287,10 +286,11 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
       setCurrentSolution(full);
       // Auto save to user's saved solutions or library
       await firestoreService.saveCommunitySolution(full);
+      recordDailyActivity(undefined, `${selectedField.toUpperCase()} Problem Design`).catch(console.error);
       await loadLibrary();
     } catch (err: any) {
       console.error('Problem lab generation error:', err);
-      setError(FALLBACK_AI_ERROR);
+      setError(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsLoading(false);
     }
@@ -404,7 +404,7 @@ export const ProblemLab: React.FC<ProblemLabProps> = ({ onSendToPortfolio }) => 
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] text-[#EA580C] uppercase block">{tmpl.location}</span>
-                    <Sparkles className="w-3 h-3 text-[#EA580C] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Zap className="w-3 h-3 text-[#EA580C] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <span className="text-xs font-semibold text-[#F5F5F4] block mt-0.5">{tmpl.title}</span>
                 </motion.button>

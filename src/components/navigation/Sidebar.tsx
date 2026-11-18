@@ -22,10 +22,12 @@ import {
   Zap,
   LogOut,
   Shield,
-  FileText
+  FileText,
+  Users
 } from 'lucide-react';
 import { getTimeGreeting, getRandomEncouragingLine, FlameIcon } from '../../utils/personality';
 import { motion } from 'motion/react';
+import { EngiHubLogo } from '../common/EngiHubLogo';
 
 interface SidebarProps {
   currentTheme: 'light' | 'dark';
@@ -72,6 +74,13 @@ const NAV_ITEMS: NavItem[] = [
     aliases: ['projects', 'problem-lab', 'portfolio']
   },
   {
+    id: 'community',
+    label: 'Community',
+    icon: Users,
+    description: 'Campus forum & discussions',
+    aliases: ['community']
+  },
+  {
     id: 'me',
     label: 'Me',
     icon: User,
@@ -113,11 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="cursor-pointer group flex items-center justify-between"
         >
           <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-serif text-lg font-bold shadow-xs ${
-              isLight ? 'bg-[#1B4332] text-[#FDFBF7]' : 'bg-[#2D6A4F] text-[#F6F3EE]'
-            }`}>
-              E
-            </div>
+            <EngiHubLogo size="md" />
             <div>
               <span className="font-serif text-xl font-bold tracking-tight block leading-none">
                 Engi<span className={isLight ? 'text-[#C67D0A]' : 'text-[#E0A844]'}>Hub</span>
@@ -134,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <motion.div
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
-            title={`${userProfile?.studyStreakDays || 1} day study streak`}
+            title={`${userProfile?.studyStreakDays || 1} day study streak · ${userProfile?.todaySessionsCount || 0} sessions today (${userProfile?.totalStudySessions || 0} total)`}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all relative overflow-hidden ${
               isLight
                 ? 'bg-[#FDF4E5] border border-[#E8D4B0] text-[#A86604] shadow-xs'

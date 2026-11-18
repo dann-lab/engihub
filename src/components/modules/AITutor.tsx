@@ -285,7 +285,7 @@ export const AITutor: React.FC = () => {
       // Refresh past sessions
       firestoreService.getTutorSessions(currentUser.uid).then(setPastSessions).catch(console.error);
     } catch (err: any) {
-      setErrorMessage(FALLBACK_AI_ERROR);
+      setErrorMessage(err?.message || FALLBACK_AI_ERROR);
     } finally {
       setIsStreaming(false);
     }
